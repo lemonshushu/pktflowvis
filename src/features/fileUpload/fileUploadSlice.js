@@ -3,15 +3,15 @@ import { createSlice } from '@reduxjs/toolkit';
 export const fileUploadSlice = createSlice({
     name: 'fileUpload',
     initialState: {
-        pcapFile: null,
+        data: null,
     },
     reducers: {
-        setPcapFile: (state, action) => {
-            state.pcapFile = action.payload;
+        setData: (state, action) => {
+            state.data = action.payload;
         },
     },
 });
 
-export const { setPcapFile } = fileUploadSlice.actions;
+export const { setData } = fileUploadSlice.actions;
 
 export default fileUploadSlice.reducer;

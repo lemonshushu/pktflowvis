@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
-import { Button, Container, Form, Row, Col } from 'react-bootstrap';
+import { Button, Form } from 'react-bootstrap';
 import { useDispatch } from 'react-redux';
-import { setPcapFile } from './fileUploadSlice';
-import { createOfflineSession } from '@audc/pcap';
+import { setData } from './fileUploadSlice';
 
 
-const parsePcapFile = (file) => {
-    const pcapSession = createOfflineSession(file);
-    const packets = [];
-    pcapSession.on('packet', (rawPacket) => {
-        packets.push(rawPacket);
-    });
-    pcapSession.open();
-    return packets;
+const parseJson = (file) => {
+    let parsedFile = null;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            parsedFile = JSON.parse(e.target.result);
+        } catch (e) {
+            alert('Error parsing JSON file!');
+        }
+    };
+    reader.readAsText(file);
+    return parsedFile;
 };
 
 export default function FileUpload() {
@@ -21,8 +24,8 @@ export default function FileUpload() {
 
     const onSubmitClick = (selectedFile) => {
         if (selectedFile != null) {
-            const parsedFile = parsePcapFile(selectedFile);
-            dispatch(setPcapFile(parsedFile));
+            const parsedFile = parseJson(selectedFile);
+            dispatch(setData(parsedFile));
         }
         else alert('No file selected!');
     };
@@ -30,7 +33,7 @@ export default function FileUpload() {
     return (
         <div className="d-flex align-items-center justify-content-center vh-100">
             <div><Form.Group controlId="formFile" className="mb-3" width="50%">
-                <Form.Label column={true}>Upload your pcap file: </Form.Label>
+                <Form.Label column={true}>Upload your JSON file: </Form.Label>
                 <Form.Control type="file" onChange={(e) => setSelectedFile(e.target.files[ 0 ])} />
             </Form.Group>
                 <Button variant="primary" type="submit" onClick={() => onSubmitClick(selectedFile)}>Submit</Button>

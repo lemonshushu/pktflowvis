@@ -1,11 +1,9 @@
-import './App.css';
-import FileUpload from '../features/fileUpload/FileUpload';
-import { useSelector } from 'react-redux';
-import { Routes, Route, Navigate } from 'react-router-dom';
 import {
     createBrowserRouter,
     RouterProvider,
 } from "react-router-dom";
+import FileUpload from '../features/fileUpload/FileUpload';
+import './App.css';
 
 const router = createBrowserRouter([
     {
