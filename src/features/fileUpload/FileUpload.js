@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button, Form } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
 import { Navigate } from 'react-router-dom';
-import { setPackets } from './fileUploadSlice';
+import { setPackets } from '../data/dataSlice';
 
 
 /**
@@ -30,7 +30,7 @@ const parseJson = (file) => {
 export default function FileUpload() {
     const dispatch = useDispatch();
     const [ selectedFile, setSelectedFile ] = useState(null);
-    const packets = useSelector((state) => state.fileUpload.packets);
+    const packets = useSelector((state) => state.data.packets);
 
 
     /**

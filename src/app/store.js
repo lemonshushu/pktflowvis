@@ -1,8 +1,8 @@
 import { configureStore } from '@reduxjs/toolkit';
-import fileUploadReducer from '../features/fileUpload/fileUploadSlice';
+import dataReducer from '../features/data/dataSlice';
 
 export default configureStore({
     reducer: {
-        fileUpload: fileUploadReducer,
+        data: dataReducer,
     },
 });
