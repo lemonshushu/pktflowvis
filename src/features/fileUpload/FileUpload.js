@@ -40,12 +40,11 @@ export default function FileUpload() {
     const onSubmitClick = async (selectedFile) => {
         if (selectedFile != null) {
             try {
-                let parsedFile = await parseJson(selectedFile);
+                const parsedFile = await parseJson(selectedFile);
 
                 // Filter out only TCP & UDP packets
-                parsedFile = parsedFile.filter((packet) => packet._source.layers.ip && (packet._source.layers.tcp || packet._source.layers.udp));
-                console.log(parsedFile);
-                dispatch(setPackets(parsedFile));
+                const packets = parsedFile.filter((packet) => packet._source.layers.ip && (packet._source.layers.tcp || packet._source.layers.udp));
+                dispatch(setPackets(packets));
             } catch (error) {
                 console.error('Failed to parse the file', error);
             }
