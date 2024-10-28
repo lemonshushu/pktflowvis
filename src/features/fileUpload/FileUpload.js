@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button, Form } from 'react-bootstrap';
 import { useDispatch } from 'react-redux';
-import { setData } from './fileUploadSlice';
+import { setPackets } from './fileUploadSlice';
 
 
 const parseJson = (file) => {
@@ -33,7 +33,7 @@ export default function FileUpload() {
                 // Filter out only TCP & UDP packets
                 parsedFile = parsedFile.filter((packet) => packet._source.layers.ip && (packet._source.layers.tcp || packet._source.layers.udp));
                 console.log(parsedFile);
-                dispatch(setData(parsedFile));
+                dispatch(setPackets(parsedFile));
             } catch (error) {
                 console.error('Failed to parse the file', error);
             }
