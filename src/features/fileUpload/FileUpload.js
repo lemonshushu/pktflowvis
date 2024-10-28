@@ -5,30 +5,43 @@ import { setData } from './fileUploadSlice';
 
 
 const parseJson = (file) => {
-    let parsedFile = null;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            parsedFile = JSON.parse(e.target.result);
-        } catch (e) {
-            alert('Error parsing JSON file!');
-        }
-    };
-    reader.readAsText(file);
-    return parsedFile;
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const parsedFile = JSON.parse(e.target.result);
+                resolve(parsedFile);
+            } catch (error) {
+                alert('Error parsing JSON file!');
+                reject(error);
+            }
+        };
+        reader.readAsText(file);
+    });
 };
+
 
 export default function FileUpload() {
     const dispatch = useDispatch();
     const [ selectedFile, setSelectedFile ] = useState(null);
 
-    const onSubmitClick = (selectedFile) => {
+    const onSubmitClick = async (selectedFile) => {
         if (selectedFile != null) {
-            const parsedFile = parseJson(selectedFile);
-            dispatch(setData(parsedFile));
+            try {
+                let parsedFile = await parseJson(selectedFile);
+
+                // Filter out only TCP & UDP packets
+                parsedFile = parsedFile.filter((packet) => packet._source.layers.ip && (packet._source.layers.tcp || packet._source.layers.udp));
+                console.log(parsedFile);
+                dispatch(setData(parsedFile));
+            } catch (error) {
+                console.error('Failed to parse the file', error);
+            }
+        } else {
+            alert('No file selected!');
         }
-        else alert('No file selected!');
     };
+
 
     return (
         <div className="d-flex align-items-center justify-content-center vh-100">
