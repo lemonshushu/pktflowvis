@@ -19,8 +19,9 @@ export default function GraphView() {
     const dispatch = useDispatch();
 
     const initHostData = () => {
-        // "nodes" consist of {"ip_addr", "traffic_volume"}, where traffic_volume is the sum of all traffic sent/received by the host
-        // "links" consist of {"src_ip", "dst_ip"}
+        // "nodes" consist of {"id", "ip_addr", "traffic_volume"}, where traffic_volume is the sum of all traffic sent/received by the host
+        // "links" consist of {"source", "target", "src_ip", "dst_ip"}
+        // Note that "id" in nodes and "source" and "target" in links are needed for d3.forceLink
         const data = { "nodes": [], "links": [] };
 
         packets.forEach((packet) => {
@@ -31,7 +32,7 @@ export default function GraphView() {
             // Check if src_ip is already in the "nodes" array
             const src_index = data.nodes.findIndex((node) => node.ip_addr === src_ip);
             if (src_index === -1) {
-                data.nodes.push({ "ip_addr": src_ip, "traffic_volume": frame_size });
+                data.nodes.push({ "id": src_ip, "ip_addr": src_ip, "traffic_volume": frame_size });
             } else {
                 data.nodes[ src_index ].traffic_volume += frame_size;
             }
@@ -39,7 +40,7 @@ export default function GraphView() {
             // Check if dst_ip is already in the "nodes" array
             const dst_index = data.nodes.findIndex((node) => node.ip_addr === dst_ip);
             if (dst_index === -1) {
-                data.nodes.push({ "ip_addr": dst_ip, "traffic_volume": frame_size });
+                data.nodes.push({ "id": dst_ip, "ip_addr": dst_ip, "traffic_volume": frame_size });
             } else {
                 data.nodes[ dst_index ].traffic_volume += frame_size;
             }
@@ -47,7 +48,7 @@ export default function GraphView() {
             // Check if the link is already in the "links" array
             const link = data.links.find((link) => link.src_ip === src_ip && link.dst_ip === dst_ip);
             if (!link) {
-                data.links.push({ "src_ip": src_ip, "dst_ip": dst_ip });
+                data.links.push({source: src_ip, target: dst_ip, "src_ip": src_ip, "dst_ip": dst_ip });
             }
         });
 
@@ -55,8 +56,8 @@ export default function GraphView() {
     };
 
     const initPortData = () => {
-        // "nodes" consist of {"ip_addr", "port", traffic_volume", "l4_proto", "l7_proto"}
-        // "links" consist of {"src_ip", "src_port", "dst_ip", "dst_port"}
+        // "nodes" consist of {"id", "ip_addr", "port", traffic_volume", "l4_proto", "l7_proto"}
+        // "links" consist of {"source", "target", "src_ip", "src_port", "dst_ip", "dst_port"}
         const data = { "nodes": [], "links": [] };
 
         packets.forEach((packet) => {
@@ -69,9 +70,12 @@ export default function GraphView() {
             // l7_proto is 5th key of packet._source.layers.tcp or packet._source.layers.udp
             const l7_proto = packet._source.layers.tcp ? Object.keys(packet._source.layers.tcp)[ 4 ] : Object.keys(packet._source.layers.udp)[ 4 ];
 
-            const src_index = data.nodes.findIndex((node) => node.ip_addr === src_ip && node.port === src_port);
+            const src_id = src_ip + ':' + src_port;
+            const dst_id = dst_ip + ':' + dst_port;
+
+            const src_index = data.nodes.findIndex((node) => node.id === src_id);
             if (src_index === -1) {
-                data.nodes.push({ "ip_addr": src_ip, "port": src_port, "traffic_volume": frame_size, "l4_proto": l4_proto, "l7_proto": l7_proto });
+                data.nodes.push({"id": src_id, "ip_addr": src_ip, "port": src_port, "traffic_volume": frame_size, "l4_proto": l4_proto, "l7_proto": l7_proto });
             } else {
                 data.nodes[ src_index ].traffic_volume += frame_size;
                 if (l4_proto != data.nodes[ src_index ].l4_proto) {
@@ -82,9 +86,9 @@ export default function GraphView() {
                 }
             }
 
-            const dst_index = data.nodes.findIndex((node) => node.ip_addr === dst_ip && node.port === dst_port);
+            const dst_index = data.nodes.findIndex((node) => node.id === dst_id);
             if (dst_index === -1) {
-                data.nodes.push({ "ip_addr": dst_ip, "port": dst_port, "traffic_volume": frame_size, "l4_proto": l4_proto, "l7_proto": l7_proto });
+                data.nodes.push({ "id": dst_id, "ip_addr": dst_ip, "port": dst_port, "traffic_volume": frame_size, "l4_proto": l4_proto, "l7_proto": l7_proto });
             } else {
                 data.nodes[ dst_index ].traffic_volume += frame_size;
                 if (l4_proto != data.nodes[ dst_index ].l4_proto) {
@@ -96,9 +100,9 @@ export default function GraphView() {
             }
 
             // Check if the link is already in the "links" array
-            const link = data.links.find((link) => link.src_ip === src_ip && link.src_port === src_port && link.dst_ip === dst_ip && link.dst_port === dst_port);
+            const link = data.links.find((link) => link.source === src_id && link.target === dst_id);
             if (!link) {
-                data.links.push({ "src_ip": src_ip, "src_port": src_port, "dst_ip": dst_ip, "dst_port": dst_port });
+                data.links.push({ "source": src_id, "target": dst_id, "src_ip": src_ip, "src_port": src_port, "dst_ip": dst_ip, "dst_port": dst_port });
             }
 
         });
@@ -143,52 +147,53 @@ export default function GraphView() {
         };
 
         if (mode == 'host') {
-            const links = hostData.links.map(d => Object.create(d));
-            const nodes = hostData.nodes.map(d => Object.create(d));
+            const links = hostData.links.map(d => ({...d}));
+            const nodes = hostData.nodes.map(d => ({...d}));
 
-            // const simulation = d3.forceSimulation(nodes)
-            //     .force("link", d3.forceLink(links).id(d => d.ip_addr))
-            //     .force("charge", d3.forceManyBody())
-            //     .force("center", d3.forceCenter(graphWidth / 2, graphHeight / 2));
 
-            // const svg = d3.select(graphRef.current)
-            //     .attr("viewBox", [ 0, 0, graphWidth, graphHeight ]);
+            const simulation = d3.forceSimulation(nodes)
+                .force("link", d3.forceLink(links).id(d => d.ip_addr))
+                .force("charge", d3.forceManyBody())
+                .force("center", d3.forceCenter(graphWidth / 2, graphHeight / 2));
 
-            // const link = svg.append("g")
-            //     .attr("stroke", "#999")
-            //     .attr("stroke-opacity", 0.6)
-            //     .selectAll("line")
-            //     .data(links)
-            //     .join("line")
-            //     .attr("stroke-width", d => Math.sqrt(d.value));
+            const svg = d3.select(graphRef.current)
+                .attr("viewBox", [ 0, 0, graphWidth, graphHeight ]);
 
-            // const node = svg.append("g")
-            //     .attr("stroke", "#fff")
-            //     .attr("stroke-width", 1.5)
-            //     .selectAll("circle")
-            //     .data(nodes)
-            //     .join("circle")
-            //     .attr("r", 5)
-            //     .attr("fill", color(1))
-            //     .call(drag(simulation));
+            const link = svg.append("g")
+                .attr("stroke", "#999")
+                .attr("stroke-opacity", 0.6)
+                .selectAll("line")
+                .data(links)
+                .join("line")
+                .attr("stroke-width", d => Math.sqrt(d.value));
 
-            // node.append("title")
-            //     .text(d => d.ip_addr);
+            const node = svg.append("g")
+                .attr("stroke", "#fff")
+                .attr("stroke-width", 1.5)
+                .selectAll("circle")
+                .data(nodes)
+                .join("circle")
+                .attr("r", 5)
+                .attr("fill", color(1))
+                .call(drag(simulation));
 
-            // simulation.on("tick", () => {
-            //     link
-            //         .attr("x1", d => d.source.x)
-            //         .attr("y1", d => d.source.y)
-            //         .attr("x2", d => d.target.x)
-            //         .attr("y2", d => d.target.y);
+            node.append("title")
+                .text(d => d.ip_addr);
 
-            //     node
-            //         .attr("cx", d => d.x)
-            //         .attr("cy", d => d.y);
-            // }
-            // );
+            simulation.on("tick", () => {
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
 
-            // return () => simulation.stop();
+                node
+                    .attr("cx", d => d.x)
+                    .attr("cy", d => d.y);
+            }
+            );
+
+            return () => simulation.stop();
 
         } else {
 
