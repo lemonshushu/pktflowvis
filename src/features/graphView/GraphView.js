@@ -27,7 +27,7 @@ export default function GraphView() {
         packets.forEach((packet) => {
             const src_ip = packet._source.layers.ip[ 'ip.src_host' ];
             const dst_ip = packet._source.layers.ip[ 'ip.dst_host' ];
-            const frame_size = packet._source.layers.frame[ 'frame.len' ];
+            const frame_size = Number(packet._source.layers.frame[ 'frame.len' ]);
 
             // Check if src_ip is already in the "nodes" array
             const src_index = data.nodes.findIndex((node) => node.ip_addr === src_ip);
@@ -65,7 +65,7 @@ export default function GraphView() {
             const dst_ip = packet._source.layers.ip[ 'ip.dst_host' ];
             const src_port = packet._source.layers.tcp ? packet._source.layers.tcp[ 'tcp.srcport' ] : packet._source.layers.udp[ 'udp.srcport' ];
             const dst_port = packet._source.layers.tcp ? packet._source.layers.tcp[ 'tcp.dstport' ] : packet._source.layers.udp[ 'udp.dstport' ];
-            const frame_size = packet._source.layers.frame[ 'frame.len' ];
+            const frame_size = Number(packet._source.layers.frame[ 'frame.len' ]);
             const l4_proto = packet._source.layers.tcp ? 'TCP' : 'UDP';
             // l7_proto is 5th key of packet._source.layers.tcp or packet._source.layers.udp
             const l7_proto = packet._source.layers.tcp ? Object.keys(packet._source.layers.tcp)[ 4 ] : Object.keys(packet._source.layers.udp)[ 4 ];
@@ -78,10 +78,10 @@ export default function GraphView() {
                 data.nodes.push({"id": src_id, "ip_addr": src_ip, "port": src_port, "traffic_volume": frame_size, "l4_proto": l4_proto, "l7_proto": l7_proto });
             } else {
                 data.nodes[ src_index ].traffic_volume += frame_size;
-                if (l4_proto != data.nodes[ src_index ].l4_proto) {
+                if (l4_proto !== data.nodes[ src_index ].l4_proto) {
                     data.nodes[ src_index ].l4_proto = 'TCP/UDP';
                 }
-                if (l7_proto != data.nodes[ src_index ].l7_proto) {
+                if (l7_proto !== data.nodes[ src_index ].l7_proto) {
                     data.nodes[ src_index ].l7_proto = 'Multiple';
                 }
             }
@@ -91,10 +91,10 @@ export default function GraphView() {
                 data.nodes.push({ "id": dst_id, "ip_addr": dst_ip, "port": dst_port, "traffic_volume": frame_size, "l4_proto": l4_proto, "l7_proto": l7_proto });
             } else {
                 data.nodes[ dst_index ].traffic_volume += frame_size;
-                if (l4_proto != data.nodes[ dst_index ].l4_proto) {
+                if (l4_proto !== data.nodes[ dst_index ].l4_proto) {
                     data.nodes[ dst_index ].l4_proto = 'TCP/UDP';
                 }
-                if (l7_proto != data.nodes[ dst_index ].l7_proto) {
+                if (l7_proto !== data.nodes[ dst_index ].l7_proto) {
                     data.nodes[ dst_index ].l7_proto = 'Multiple';
                 }
             }
@@ -146,56 +146,128 @@ export default function GraphView() {
                 .on("end", dragended);
         };
 
-        if (mode == 'host') {
-            const links = hostData.links.map(d => ({...d}));
-            const nodes = hostData.nodes.map(d => ({...d}));
-
-
+        if (mode === 'host') {
+            const links = hostData.links.map(d => ({ ...d }));
+            const nodes = hostData.nodes.map(d => ({ ...d }));
+        
+            const colorScale = d3.scaleOrdinal(d3.schemeCategory10)
+                .domain(nodes.map(d => d.ip_addr));
+        
+            const sizeScale = d3.scaleSqrt()
+                .domain(d3.extent(nodes, d => d.traffic_volume))
+                .range([5, 20]);
+        
             const simulation = d3.forceSimulation(nodes)
-                .force("link", d3.forceLink(links).id(d => d.ip_addr))
-                .force("charge", d3.forceManyBody())
+                .force("link", d3.forceLink(links)
+                    .id(d => d.ip_addr)
+                    .distance(100)
+                )
+                .force("charge", d3.forceManyBody().strength(-50))
                 .force("center", d3.forceCenter(graphWidth / 2, graphHeight / 2));
-
+        
             const svg = d3.select(graphRef.current)
-                .attr("viewBox", [ 0, 0, graphWidth, graphHeight ]);
-
+                .attr("viewBox", [0, 0, graphWidth, graphHeight]);
+        
+            svg.append("defs").append("marker")
+                .attr("id", "arrowhead")
+                .attr("viewBox", [0, 0, 10, 10])
+                .attr("refX", 10)
+                .attr("refY", 5)
+                .attr("markerWidth", 6)
+                .attr("markerHeight", 6)
+                .attr("orient", "auto-start-reverse")
+                .append("path")
+                .attr("d", "M 0 0 L 10 5 L 0 10 Z")
+                .attr("fill", "#999");
+        
             const link = svg.append("g")
                 .attr("stroke", "#999")
                 .attr("stroke-opacity", 0.6)
                 .selectAll("line")
                 .data(links)
                 .join("line")
-                .attr("stroke-width", d => Math.sqrt(d.value));
-
+                .attr("stroke-width", d => Math.sqrt(d.value))
+                .attr("marker-end", "url(#arrowhead)");
+        
             const node = svg.append("g")
                 .attr("stroke", "#fff")
                 .attr("stroke-width", 1.5)
                 .selectAll("circle")
                 .data(nodes)
                 .join("circle")
-                .attr("r", 5)
-                .attr("fill", color(1))
+                .attr("r", d => sizeScale(d.traffic_volume))
+                .attr("fill", d => colorScale(d.ip_addr))
                 .call(drag(simulation));
-
-            node.append("title")
-                .text(d => d.ip_addr);
-
+        
+            const tooltip = d3.select("body").append("div")
+                .attr("class", "tooltip")
+                .style("position", "absolute")
+                .style("padding", "8px")
+                .style("background", "rgba(0, 0, 0, 0.7)")
+                .style("border-radius", "4px")
+                .style("color", "#fff")
+                .style("pointer-events", "none")
+                .style("opacity", 0);
+        
+            node.on("mouseover", (event, d) => {
+                    tooltip
+                        .style("opacity", 1)
+                        .html(`IP: ${d.ip_addr}<br>Traffic Volume: ${d.traffic_volume}`);
+                })
+                .on("mousemove", event => {
+                    tooltip
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 20) + "px");
+                })
+                .on("mouseout", () => {
+                    tooltip.style("opacity", 0);
+                });
+        
+            const labels = svg.append("g")
+                .selectAll("text")
+                .data(nodes)
+                .join("text")
+                .attr("x", d => d.x + 8)
+                .attr("y", d => d.y)
+                .text(d => d.id)
+                .attr("font-size", "10px")
+                .attr("fill", "#555");
+        
             simulation.on("tick", () => {
                 link
                     .attr("x1", d => d.source.x)
                     .attr("y1", d => d.source.y)
-                    .attr("x2", d => d.target.x)
-                    .attr("y2", d => d.target.y);
-
+                    .attr("x2", d => {
+                        const dx = d.target.x - d.source.x;
+                        const dy = d.target.y - d.source.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        const offsetX = (dx * (sizeScale(d.target.traffic_volume) + 5)) / distance;  // Adjust arrow offset
+                        return d.target.x - offsetX;
+                    })
+                    .attr("y2", d => {
+                        const dx = d.target.x - d.source.x;
+                        const dy = d.target.y - d.source.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        const offsetY = (dy * (sizeScale(d.target.traffic_volume) + 5)) / distance;  // Adjust arrow offset
+                        return d.target.y - offsetY;
+                    });
+        
                 node
                     .attr("cx", d => d.x)
                     .attr("cy", d => d.y);
-            }
-            );
-
-            return () => simulation.stop();
-
-        } else {
+        
+                labels
+                    .attr("x", d => d.x + 8)
+                    .attr("y", d => d.y);
+            });
+        
+            return () => {
+                simulation.stop();
+                tooltip.remove();
+            };
+        }
+        
+         else {
 
         }
     }, [ hostData, portData, mode ]);
