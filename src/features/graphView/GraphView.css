@@ -1,0 +1,6 @@
+.toggle-button-container {
+    position: absolute;
+    top: 10px; /* Adjust as needed */
+    right: 10px; /* Adjust as needed */
+    z-index: 1; /* Ensure it appears above other elements */
+}
