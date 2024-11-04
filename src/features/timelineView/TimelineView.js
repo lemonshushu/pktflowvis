@@ -11,6 +11,7 @@ import TimelineEntry from './components/TimelineEntry';
 export default function TimelineView() {
     const packets = useSelector((state) => state.data.packets);
     const dispatch = useDispatch();
+    const timelineData = useSelector((state) => state.timelineView.timelineData);
 
     useEffect(() => {
     }
@@ -18,26 +19,30 @@ export default function TimelineView() {
 
 
     return (
-        packets ? 
-        <div>
-            <Container>
-                <Row className="mt-3 mb-3">
-                    <Col xs={3}>Align time: <Toggle></Toggle></Col>
-                    <Col></Col>
-                    <Col xs={3}>
-                        <Button className="rounded-circle" variant="light" onClick={
-                            () => {
-                                dispatch(addEntry());
-                            }
-                        } ><FontAwesomeIcon icon={faPlus} size="l" /></Button>  Add entry</Col>
-                </Row>
-                <TimelineEntry />
-            </Container>
-            <div style={{ position: "absolute", left: 40, top: "50vh", zIndex: 10 }}>
-                <Link to="/graph">
-                    <Button className="rounded-circle" variant="light"><FontAwesomeIcon icon={faChevronLeft} size="2xl" /></Button>
-                </Link>
-            </div>
-        </div> : <Navigate to="/" />
+        packets ?
+            <div>
+                <Container>
+                    <Row className="mt-3 mb-3">
+                        <Col xs={3}>Align time: <Toggle></Toggle></Col>
+                        <Col></Col>
+                        <Col xs={3}>
+                            <Button className="rounded-circle" variant="light" onClick={
+                                () => {
+                                    dispatch(addEntry());
+                                }
+                            } ><FontAwesomeIcon icon={faPlus} size="l" /></Button>  Add entry</Col>
+                    </Row>
+                    {timelineData.map((entry, index) => {
+                        return (
+                            <TimelineEntry entryIndex={index} key={index} />
+                        );
+                    })}
+                </Container>
+                <div style={{ position: "absolute", left: 40, top: "50vh", zIndex: 10 }}>
+                    <Link to="/graph">
+                        <Button className="rounded-circle" variant="light"><FontAwesomeIcon icon={faChevronLeft} size="2xl" /></Button>
+                    </Link>
+                </div>
+            </div> : <Navigate to="/" />
     );
 }
