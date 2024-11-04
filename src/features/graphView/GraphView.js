@@ -4,12 +4,11 @@ import * as d3 from 'd3';
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
-import { Navigate, Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import Toggle from 'react-toggle';
 import "react-toggle/style.css";
 import './GraphView.css';
 import { setHostGraphData, setMode, setPortGraphData } from './graphViewSlice';
-import { Button } from 'react-bootstrap';
 
 export default function GraphView() {
     const packets = useSelector((state) => state.data.packets);
