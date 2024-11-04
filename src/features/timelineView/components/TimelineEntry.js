@@ -57,6 +57,7 @@ export default function TimelineEntry({ entryIndex }) {
                     <Col xs={5} className="d-flex align-items-center justify-content-center">
                         <Form.Label><strong>Host A: </strong></Form.Label>
                         <Form.Select className="ms-3" style={{ width: 250 }} onChange={onHostAChange}>
+                            <option></option>
                             {timelineViewOpts.map((opt, index) => {
                                 return (<option key={index}>{opt.ip_addr}</option>);
                             })}
@@ -82,6 +83,7 @@ export default function TimelineEntry({ entryIndex }) {
                     <Col xs={5} className="d-flex align-items-center justify-content-center">
                         <Form.Label><strong>Host B: </strong></Form.Label>
                         <Form.Select className="ms-3" style={{ width: 250 }} onChange={onHostBChange}>
+                            <option></option>
                             {timelineViewOpts.map((opt, index) => {
                                 return (<option key={index}>{opt.ip_addr}</option>);
                             })}</Form.Select>
