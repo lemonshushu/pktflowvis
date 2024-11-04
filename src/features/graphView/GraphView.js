@@ -6,6 +6,7 @@ import Toggle from 'react-toggle';
 import "react-toggle/style.css";
 import './GraphView.css';
 import { setHostGraphData, setMode, setPortGraphData } from './graphViewSlice';
+import { Button } from 'react-bootstrap';
 
 export default function GraphView() {
     const packets = useSelector((state) => state.data.packets);
@@ -394,7 +395,7 @@ export default function GraphView() {
         packets ? (
             <div style={{ position: "relative", width: "100vw", height: "100vh" }}>
                 <div className="reset-button-container">
-                    <button onClick={resetAllNodes}>모든 노드 위치 리셋</button>
+                    <Button onClick={resetAllNodes}>모든 노드 위치 리셋</Button>
                 </div>
                 <div className="toggle-button-container">
                     <Toggle
