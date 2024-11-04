@@ -131,7 +131,7 @@ export default function GraphView() {
     };
 
     useEffect(() => {
-        if (!hostData) {
+        if (packets && !hostData) {
             dispatch(setHostGraphData(initHostData()));
             dispatch(setPortGraphData(initPortData()));
         }
