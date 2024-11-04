@@ -1,7 +1,10 @@
+import { faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import * as d3 from 'd3';
 import React, { useEffect, useRef, useState } from 'react';
+import { Button } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import Toggle from 'react-toggle';
 import "react-toggle/style.css";
 import './GraphView.css';
@@ -433,6 +436,11 @@ export default function GraphView() {
                         defaultChecked={mode === 'port'}
                         onChange={(e) => dispatch(setMode(e.target.checked ? 'port' : 'host'))} />
                     <label htmlFor='split-toggle' style={{ marginLeft: '8px' }}>포트별로 호스트 분할</label>
+                </div>
+                <div style={{ position: "absolute", right: 40, top: "50vh", zIndex: 10 }}>
+                    <Link to="/timeline">
+                        <Button className="rounded-circle" variant="light"><FontAwesomeIcon icon={faChevronRight} size="2xl" /></Button>
+                    </Link>
                 </div>
                 <svg ref={graphRef} style={{ width: '100%', height: '100%' }} />
             </div>
