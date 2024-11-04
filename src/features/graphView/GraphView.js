@@ -245,7 +245,7 @@ export default function GraphView() {
             container.append("defs").append("marker")
                 .attr("id", "arrowhead")
                 .attr("viewBox", [ 0, 0, 10, 10 ])
-                .attr("refX", 15)  // Adjusted to position arrowhead over circle
+                .attr("refX", 8)  // Adjusted to position arrowhead over circle
                 .attr("refY", 5)
                 .attr("markerWidth", 6)
                 .attr("markerHeight", 6)
@@ -336,11 +336,6 @@ export default function GraphView() {
             node.call(drag(simulation));
             
             simulation.on("tick", () => {
-                // link
-                //     .attr("x1", d => d.source.x)
-                //     .attr("y1", d => d.source.y)
-                //     .attr("x2", d => d.target.x)
-                //     .attr("y2", d => d.target.y);
                 link
                     .attr("x1", d => {
                     const sourceRadius = sizeScale(d.source.traffic_volume);
