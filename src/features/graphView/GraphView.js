@@ -336,11 +336,40 @@ export default function GraphView() {
             node.call(drag(simulation));
             
             simulation.on("tick", () => {
+                // link
+                //     .attr("x1", d => d.source.x)
+                //     .attr("y1", d => d.source.y)
+                //     .attr("x2", d => d.target.x)
+                //     .attr("y2", d => d.target.y);
                 link
-                    .attr("x1", d => d.source.x)
-                    .attr("y1", d => d.source.y)
-                    .attr("x2", d => d.target.x)
-                    .attr("y2", d => d.target.y);
+                    .attr("x1", d => {
+                    const sourceRadius = sizeScale(d.source.traffic_volume);
+                    const dx = d.target.x - d.source.x;
+                    const dy = d.target.y - d.source.y;
+                    const angle = Math.atan2(dy, dx);
+                    return d.source.x + Math.cos(angle) * sourceRadius;
+                    })
+                    .attr("y1", d => {
+                    const sourceRadius = sizeScale(d.source.traffic_volume);
+                    const dx = d.target.x - d.source.x;
+                    const dy = d.target.y - d.source.y;
+                    const angle = Math.atan2(dy, dx);
+                    return d.source.y + Math.sin(angle) * sourceRadius;
+                    })
+                    .attr("x2", d => {
+                    const targetRadius = sizeScale(d.target.traffic_volume);
+                    const dx = d.target.x - d.source.x;
+                    const dy = d.target.y - d.source.y;
+                    const angle = Math.atan2(dy, dx);
+                    return d.target.x - Math.cos(angle) * targetRadius;
+                    })
+                    .attr("y2", d => {
+                    const targetRadius = sizeScale(d.target.traffic_volume);
+                    const dx = d.target.x - d.source.x;
+                    const dy = d.target.y - d.source.y;
+                    const angle = Math.atan2(dy, dx);
+                    return d.target.y - Math.sin(angle) * targetRadius;
+                    });
 
                 node
                     .attr("cx", d => d.x)
