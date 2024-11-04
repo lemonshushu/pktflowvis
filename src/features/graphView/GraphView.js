@@ -1,11 +1,12 @@
 import * as d3 from 'd3';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Navigate } from 'react-router-dom';
 import Toggle from 'react-toggle';
 import "react-toggle/style.css";
 import './GraphView.css';
 import { setHostGraphData, setMode, setPortGraphData } from './graphViewSlice';
+import { Button } from 'react-bootstrap';
 
 export default function GraphView() {
     const packets = useSelector((state) => state.data.packets);
@@ -13,6 +14,19 @@ export default function GraphView() {
     const hostData = useSelector((state) => state.graphView.hostGraphData);
     const portData = useSelector((state) => state.graphView.portGraphData);
     const mode = useSelector((state) => state.graphView.mode);
+
+    const simulationRef = useRef(null);
+    const nodesRef = useRef([]);
+    const nodeRef = useRef([]);
+    const svgRef = useRef(null); // SVG 요소에 대한 참조를 저장할 ref
+    const zoomRef = useRef(null); // zoom behavior에 대한 참조를 저장할 ref
+    const [isSimulationStable, setIsSimulationStable] = useState(false);
+    const isSimulationStableRef = useRef(isSimulationStable);
+
+    function updateIsSimulationStable(value) {
+        setIsSimulationStable(value);
+        isSimulationStableRef.current = value;
+    }
 
     const dispatch = useDispatch();
 
@@ -194,16 +208,24 @@ export default function GraphView() {
         };
 
         const createGraph = (nodes, links, mode) => {
+            if (simulationRef.current) {
+                simulationRef.current.stop();
+            }
+
             d3.select(graphRef.current).selectAll("*").remove();
+
+            updateIsSimulationStable(false);
 
             const { simulation, sizeScale } = createSimulation(nodes, links, mode);
 
-            let initialPositionsStored = false;
+            simulationRef.current = simulation;
 
             const svg = d3.select(graphRef.current)
                 .attr("width", '100%')
                 .attr("height", '100%')
                 .attr("viewBox", [ -500, -500, 1000, 1000 ]);
+
+            svgRef.current = svg;
 
             // Zoom behavior
             const zoom = d3.zoom()
@@ -215,6 +237,7 @@ export default function GraphView() {
                 });
 
             svg.call(zoom);
+            zoomRef.current = zoom;
 
             const container = svg.append("g");
 
@@ -249,12 +272,13 @@ export default function GraphView() {
                 .join("circle")
                 .attr("r", d => sizeScale(d.traffic_volume))
                 .attr("fill", d => colorScale(d.ip_addr))
-                .call(drag(simulation))
                 .on("dblclick", resetNodePosition)
                 .on("dblclick.zoom", null) // Prevent zoom on double-click on nodes
                 .on("click", (event) => {
                     event.stopPropagation(); // Prevent click from propagating to zoom
                 });
+
+            nodeRef.current = node;
 
             // Add tooltips
             const tooltip = d3.select("body").append("div")
@@ -295,6 +319,22 @@ export default function GraphView() {
                     event.stopPropagation();
                 });
 
+            
+            simulation.stop();
+
+            // 필요한 만큼 tick 실행
+            for (let i = 0; i < 300; ++i) {
+                simulation.tick();
+            }
+
+            // 노드들의 초기 위치 저장
+            nodes.forEach(d => {
+                d.originalX = d.x;
+                d.originalY = d.y;
+            });
+            nodesRef.current = nodes;
+            node.call(drag(simulation));
+            
             simulation.on("tick", () => {
                 link
                     .attr("x1", d => d.source.x)
@@ -310,14 +350,18 @@ export default function GraphView() {
                     .attr("x", d => d.x)
                     .attr("y", d => d.y - sizeScale(d.traffic_volume) - 5);
 
-                if (!initialPositionsStored && simulation.alpha() < 0.05) {
-                    nodes.forEach(d => {
-                        d.originalX = d.x;
-                        d.originalY = d.y;
-                    });
-                    initialPositionsStored = true;
+                if (simulation.alpha() < 0.05) {
+                    if (!isSimulationStableRef.current) {
+                        updateIsSimulationStable(true);
+                    }
+                } else {
+                    if (isSimulationStableRef.current) {
+                        updateIsSimulationStable(false);
+                    }
                 }
             });
+
+            simulation.alpha(1).restart();
 
             function resetNodePosition(event, d) {
                 event.stopPropagation(); // Prevent zoom on double-click
@@ -354,19 +398,43 @@ export default function GraphView() {
             createGraph(nodes, links, 'port');
         }
 
-    }, [ hostData, portData, mode ]);
+    }, [ hostData, portData, mode]);
+
+    function resetAllNodes() {
+        if (nodesRef.current && simulationRef.current && simulationRef.current.alpha() < 0.05) {
+            nodesRef.current.forEach(d => {
+                d.x = d.originalX;
+                d.y = d.originalY;
+                d.vx = 0;
+                d.vy = 0;
+                d.fx = null;
+                d.fy = null;
+            });
+            simulationRef.current.alpha(1).restart();
+        }
+
+        if (svgRef.current && zoomRef.current) {
+            svgRef.current.transition().duration(1000).call(
+                zoomRef.current.transform,
+                d3.zoomIdentity
+            );
+        }
+    }
 
     return (
         packets ? (
             <div style={{ position: "relative", width: "100vw", height: "100vh" }}>
-                <div className="toggle-button-container" style={{ position: "absolute", top: 10, left: 10, zIndex: 10 }}>
+                <div className="reset-button-container">
+                    <Button onClick={resetAllNodes} disabled={!isSimulationStable}>모든 노드 위치 리셋</Button>
+                </div>
+                <div className="toggle-button-container">
                     <Toggle
                         id='split-toggle'
-                        defaultChecked={false}
+                        defaultChecked={mode === 'port'}
                         onChange={(e) => dispatch(setMode(e.target.checked ? 'port' : 'host'))} />
-                    <label htmlFor='split-toggle' style={{ marginLeft: '8px' }}>Split hosts by ports</label>
+                    <label htmlFor='split-toggle' style={{ marginLeft: '8px' }}>포트별로 호스트 분할</label>
                 </div>
-                <svg ref={graphRef} />
+                <svg ref={graphRef} style={{ width: '100%', height: '100%' }} />
             </div>
         ) : (
             <Navigate to="/" />
