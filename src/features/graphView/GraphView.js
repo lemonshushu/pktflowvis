@@ -1,5 +1,5 @@
 import * as d3 from 'd3';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Navigate } from 'react-router-dom';
 import Toggle from 'react-toggle';
@@ -17,8 +17,16 @@ export default function GraphView() {
 
     const simulationRef = useRef(null);
     const nodesRef = useRef([]);
+    const nodeRef = useRef([]);
     const svgRef = useRef(null); // SVG 요소에 대한 참조를 저장할 ref
     const zoomRef = useRef(null); // zoom behavior에 대한 참조를 저장할 ref
+    const [isSimulationStable, setIsSimulationStable] = useState(false);
+    const isSimulationStableRef = useRef(isSimulationStable);
+
+    function updateIsSimulationStable(value) {
+        setIsSimulationStable(value);
+        isSimulationStableRef.current = value;
+    }
 
     const dispatch = useDispatch();
 
@@ -191,8 +199,6 @@ export default function GraphView() {
             function dragended(event) {
                 if (!event.active) simulation.alphaTarget(0);
                 // Nodes remain at their dragged positions
-                // event.subject.fx = null;
-                // event.subject.fy = null;
             }
 
             return d3.drag()
@@ -202,11 +208,17 @@ export default function GraphView() {
         };
 
         const createGraph = (nodes, links, mode) => {
+            if (simulationRef.current) {
+                simulationRef.current.stop();
+            }
+
             d3.select(graphRef.current).selectAll("*").remove();
+
+            updateIsSimulationStable(false);
 
             const { simulation, sizeScale } = createSimulation(nodes, links, mode);
 
-            let initialPositionsStored = false;
+            simulationRef.current = simulation;
 
             const svg = d3.select(graphRef.current)
                 .attr("width", '100%')
@@ -260,12 +272,13 @@ export default function GraphView() {
                 .join("circle")
                 .attr("r", d => sizeScale(d.traffic_volume))
                 .attr("fill", d => colorScale(d.ip_addr))
-                .call(drag(simulation))
                 .on("dblclick", resetNodePosition)
                 .on("dblclick.zoom", null) // Prevent zoom on double-click on nodes
                 .on("click", (event) => {
                     event.stopPropagation(); // Prevent click from propagating to zoom
                 });
+
+            nodeRef.current = node;
 
             // Add tooltips
             const tooltip = d3.select("body").append("div")
@@ -306,6 +319,22 @@ export default function GraphView() {
                     event.stopPropagation();
                 });
 
+            
+            simulation.stop();
+
+            // 필요한 만큼 tick 실행
+            for (let i = 0; i < 300; ++i) {
+                simulation.tick();
+            }
+
+            // 노드들의 초기 위치 저장
+            nodes.forEach(d => {
+                d.originalX = d.x;
+                d.originalY = d.y;
+            });
+            nodesRef.current = nodes;
+            node.call(drag(simulation));
+            
             simulation.on("tick", () => {
                 link
                     .attr("x1", d => d.source.x)
@@ -321,17 +350,18 @@ export default function GraphView() {
                     .attr("x", d => d.x)
                     .attr("y", d => d.y - sizeScale(d.traffic_volume) - 5);
 
-                if (!initialPositionsStored && simulation.alpha() < 0.05) {
-                    nodes.forEach(d => {
-                        d.originalX = d.x;
-                        d.originalY = d.y;
-                    });
-                    initialPositionsStored = true;
+                if (simulation.alpha() < 0.05) {
+                    if (!isSimulationStableRef.current) {
+                        updateIsSimulationStable(true);
+                    }
+                } else {
+                    if (isSimulationStableRef.current) {
+                        updateIsSimulationStable(false);
+                    }
                 }
             });
 
-            simulationRef.current = simulation;
-            nodesRef.current = nodes;
+            simulation.alpha(1).restart();
 
             function resetNodePosition(event, d) {
                 event.stopPropagation(); // Prevent zoom on double-click
@@ -368,10 +398,10 @@ export default function GraphView() {
             createGraph(nodes, links, 'port');
         }
 
-    }, [ hostData, portData, mode ]);
+    }, [ hostData, portData, mode]);
 
     function resetAllNodes() {
-        if (nodesRef.current && simulationRef.current) {
+        if (nodesRef.current && simulationRef.current && simulationRef.current.alpha() < 0.05) {
             nodesRef.current.forEach(d => {
                 d.x = d.originalX;
                 d.y = d.originalY;
@@ -395,7 +425,7 @@ export default function GraphView() {
         packets ? (
             <div style={{ position: "relative", width: "100vw", height: "100vh" }}>
                 <div className="reset-button-container">
-                    <Button onClick={resetAllNodes}>모든 노드 위치 리셋</Button>
+                    <Button onClick={resetAllNodes} disabled={!isSimulationStable}>모든 노드 위치 리셋</Button>
                 </div>
                 <div className="toggle-button-container">
                     <Toggle
