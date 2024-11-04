@@ -1,10 +1,14 @@
 .timeline-entry {
     border-radius: 20px;
     border: 2px solid lightgrey;
-    height: 300px;
+    /* height: 300px; */
     box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
 }
 
 .entry-title {
     width: 400px !important;
+}
+
+.entry-form {
+    width: 100% !important;
 }
