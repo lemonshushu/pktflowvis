@@ -9,6 +9,7 @@ import Toggle from 'react-toggle';
 import "react-toggle/style.css";
 import './GraphView.css';
 import { setHostGraphData, setMode, setPortGraphData } from './graphViewSlice';
+import { setTimelineViewOpts } from '../timelineView/timelineViewSlice';
 
 export default function GraphView() {
     const packets = useSelector((state) => state.data.packets);
@@ -67,6 +68,7 @@ export default function GraphView() {
     const initPortData = () => {
         // Initialize port data with nodes and links
         const data = { nodes: [], links: [] };
+        const timelineViewOpts = [];
 
         packets.forEach((packet) => {
             const src_ip = packet._source.layers.ip[ 'ip.src_host' ];
@@ -92,6 +94,12 @@ export default function GraphView() {
                     l7_proto: l7_proto
                 };
                 data.nodes.push(src_node);
+
+                if (!timelineViewOpts.find(port => port.ip_addr === src_ip)) {
+                    timelineViewOpts.push({ ip_addr: src_ip, ports: [ src_port ] });
+                } else {
+                    timelineViewOpts.find(port => port.ip_addr === src_ip).ports.push(src_port);
+                }
             } else {
                 src_node.traffic_volume += frame_size;
                 if (src_node.l4_proto !== l4_proto) src_node.l4_proto = 'TCP/UDP';
@@ -110,6 +118,12 @@ export default function GraphView() {
                     l7_proto: l7_proto
                 };
                 data.nodes.push(dst_node);
+
+                if (!timelineViewOpts.find(port => port.ip_addr === dst_ip)) {
+                    timelineViewOpts.push({ ip_addr: dst_ip, ports: [ dst_port ] });
+                } else {
+                    timelineViewOpts.find(port => port.ip_addr === dst_ip).ports.push(dst_port);
+                }
             } else {
                 dst_node.traffic_volume += frame_size;
                 if (dst_node.l4_proto !== l4_proto) dst_node.l4_proto = 'TCP/UDP';
@@ -128,6 +142,15 @@ export default function GraphView() {
                 });
             }
         });
+
+        // Sort ports in AvailableHostPorts in ascending order
+        timelineViewOpts.forEach(port => port.ports.sort((a, b) => a - b));
+
+        // Sort hosts in AvailableHostPorts in ascending order
+        timelineViewOpts.sort((a, b) => a.ip_addr.localeCompare(b.ip_addr));
+
+
+        dispatch(setTimelineViewOpts(timelineViewOpts));
 
         return data;
     };
