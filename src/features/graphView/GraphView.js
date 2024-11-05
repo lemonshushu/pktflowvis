@@ -6,7 +6,7 @@ import Toggle from 'react-toggle';
 import "react-toggle/style.css";
 import './GraphView.css';
 import { setHostGraphData, setMode, setPortGraphData } from './graphViewSlice';
-import { Button } from 'react-bootstrap';
+import { Button, Col, Form, Row} from 'react-bootstrap';
 
 export default function GraphView() {
     const packets = useSelector((state) => state.data.packets);
@@ -22,6 +22,12 @@ export default function GraphView() {
     const zoomRef = useRef(null); // zoom behavior에 대한 참조를 저장할 ref
     const [isSimulationStable, setIsSimulationStable] = useState(false);
     const isSimulationStableRef = useRef(isSimulationStable);
+
+    const [selectedIP, setSelectedIP] = useState('');
+    const [selectedPort, setSelectedPort] = useState('');
+    const [availablePorts, setAvailablePorts] = useState([]);
+    const [nickname, setNickname] = useState('');
+
 
     function updateIsSimulationStable(value) {
         setIsSimulationStable(value);
@@ -41,14 +47,14 @@ export default function GraphView() {
 
             // Add source node
             if (!data.nodes.find(node => node.ip_addr === src_ip)) {
-                data.nodes.push({ id: src_ip, ip_addr: src_ip, traffic_volume: frame_size });
+                data.nodes.push({ nick_name: undefined, id: src_ip, ip_addr: src_ip, traffic_volume: frame_size });
             } else {
                 data.nodes.find(node => node.ip_addr === src_ip).traffic_volume += frame_size;
             }
 
             // Add destination node
             if (!data.nodes.find(node => node.ip_addr === dst_ip)) {
-                data.nodes.push({ id: dst_ip, ip_addr: dst_ip, traffic_volume: frame_size });
+                data.nodes.push({ nick_name: undefined, id: dst_ip, ip_addr: dst_ip, traffic_volume: frame_size });
             } else {
                 data.nodes.find(node => node.ip_addr === dst_ip).traffic_volume += frame_size;
             }
@@ -73,7 +79,7 @@ export default function GraphView() {
             const dst_port = packet._source.layers.tcp ? packet._source.layers.tcp[ 'tcp.dstport' ] : packet._source.layers.udp[ 'udp.dstport' ];
             const frame_size = Number(packet._source.layers.frame[ 'frame.len' ]);
             const l4_proto = packet._source.layers.tcp ? 'TCP' : 'UDP';
-            const layers = Object.keys(packet._source.layers)
+            const layers = Object.keys(packet._source.layers);
             const l7_proto = layers[ 4 ] === "tcp.segments" ? layers[ 5 ].toUpperCase() 
                             : (layers[ 4 ] === undefined ? undefined : layers[ 4 ].toUpperCase());
             
@@ -84,6 +90,7 @@ export default function GraphView() {
             let src_node = data.nodes.find(node => node.id === src_id);
             if (!src_node) {
                 src_node = {
+                    nick_name: undefined,
                     id: src_id,
                     ip_addr: src_ip,
                     port: src_port,
@@ -108,6 +115,7 @@ export default function GraphView() {
             let dst_node = data.nodes.find(node => node.id === dst_id);
             if (!dst_node) {
                 dst_node = {
+                    nick_name: undefined,
                     id: dst_id,
                     ip_addr: dst_ip,
                     port: dst_port,
@@ -324,7 +332,8 @@ export default function GraphView() {
                 .selectAll("text")
                 .data(nodes)
                 .join("text")
-                .text(d => d.id)
+                .text(d => d.nick_name ? d.nick_name : (mode === 'host' ? d.ip_addr : `${d.ip_addr}:${d.port}`))
+                // .text(d=> d.nick_name ? d.nick_name : d.id)
                 .attr("font-size", "10px")
                 .attr("fill", "#555")
                 .attr("dy", "-1em")
@@ -418,13 +427,22 @@ export default function GraphView() {
             };
         };
 
+        // const getTooltipContent = (d, mode) => {
+        //     if (mode === 'host') {
+        //         return `IP: ${d.ip_addr}<br>Traffic Volume: ${d.traffic_volume}`;
+        //     } else {
+        //         return `IP: ${d.ip_addr}<br>Port: ${d.port}<br>Traffic Volume: ${d.traffic_volume}<br>L4 Protocol: ${d.l4_proto}<br>L7 Protocol: ${d.l7_proto}`;
+        //     }
+        // };
+
         const getTooltipContent = (d, mode) => {
             if (mode === 'host') {
-                return `IP: ${d.ip_addr}<br>Traffic Volume: ${d.traffic_volume}`;
+                return `${d.nick_name ? `Nickname: ${d.nick_name}<br>` : ''}IP: ${d.ip_addr}<br>Traffic Volume: ${d.traffic_volume}`;
             } else {
-                return `IP: ${d.ip_addr}<br>Port: ${d.port}<br>Traffic Volume: ${d.traffic_volume}<br>L4 Protocol: ${d.l4_proto}<br>L7 Protocol: ${d.l7_proto}`;
+                return `${d.nick_name ? `Nickname: ${d.nick_name}<br>` : ''}IP: ${d.ip_addr}<br>Port: ${d.port}<br>Traffic Volume: ${d.traffic_volume}<br>L4 Protocol: ${d.l4_proto}<br>L7 Protocol: ${d.l7_proto}`;
             }
-        };
+        }        
+        
 
         if (mode === 'host') {
             const links = hostData.links.map(d => ({ ...d }));
@@ -437,6 +455,26 @@ export default function GraphView() {
         }
 
     }, [ hostData, portData, mode]);
+
+    useEffect(() => {
+        if (mode === 'port' && selectedIP) {
+            const ports = portData.nodes
+                .filter(node => node.ip_addr === selectedIP)
+                .map(node => node.port);
+            const uniquePorts = Array.from(new Set(ports));
+            setAvailablePorts(uniquePorts);
+        } else {
+            setAvailablePorts([]);
+        }
+        setSelectedPort('');
+    }, [selectedIP, mode]);
+    
+    useEffect(() => {
+        setSelectedIP('');
+        setSelectedPort('');
+        setAvailablePorts([]);
+    }, [mode]);
+    
 
     function resetAllNodes() {
         if (nodesRef.current && simulationRef.current && simulationRef.current.alpha() < 0.05) {
@@ -459,12 +497,163 @@ export default function GraphView() {
         }
     }
 
+    const handleNicknameChange = () => {
+        if (!selectedIP) {
+            alert("Please select an IP address.");
+            return;
+        }
+    
+        if (mode === 'host') {
+            const updatedHostData = { 
+                ...hostData, 
+                nodes: hostData.nodes.map(node => {
+                    if (node.ip_addr === selectedIP) {
+                        return { ...node, nick_name: nickname };
+                    }
+                    return node;
+                })
+            };
+            dispatch(setHostGraphData(updatedHostData));
+        } else if (mode === 'port') {
+            if (!selectedPort) {
+                alert("Please select a port.");
+                return;
+            }
+    
+            const updatedPortData = { 
+                ...portData, 
+                nodes: portData.nodes.map(node => {
+                    if (node.ip_addr === selectedIP && node.port === selectedPort) {
+                        return { ...node, nick_name: nickname };
+                    }
+                    return node;
+                })
+            };
+            dispatch(setPortGraphData(updatedPortData));
+        }
+    
+        // Reset nickname input
+        setNickname('');
+    };
+
+    const handleResetNickname = () => {
+        if (!selectedIP) {
+            alert("Please select an IP address.");
+            return;
+        }
+
+        if (mode === 'host') {
+            const updatedHostData = { 
+                ...hostData, 
+                nodes: hostData.nodes.map(node => {
+                    if (node.ip_addr === selectedIP) {
+                        const { nick_name, ...rest } = node;
+                        return { ...rest };
+                    }
+                    return node;
+                })
+            };
+            dispatch(setHostGraphData(updatedHostData));
+        } else if (mode === 'port') {
+            if (!selectedPort) {
+                alert("Please select a port.");
+                return;
+            }
+
+            const updatedPortData = { 
+                ...portData, 
+                nodes: portData.nodes.map(node => {
+                    if (node.ip_addr === selectedIP && node.port === selectedPort) {
+                        const { nick_name, ...rest } = node;
+                        return { ...rest };
+                    }
+                    return node;
+                })
+            };
+            dispatch(setPortGraphData(updatedPortData));
+        }
+    };
+
+    const handleResetAllNicknames = () => {
+        if (mode === 'host') {
+            const updatedHostData = { 
+                ...hostData, 
+                nodes: hostData.nodes.map(node => {
+                    const { nick_name, ...rest } = node;
+                    return { ...rest };
+                })
+            };
+            dispatch(setHostGraphData(updatedHostData));
+        } else if (mode === 'port') {
+            const updatedPortData = { 
+                ...portData, 
+                nodes: portData.nodes.map(node => {
+                    const { nick_name, ...rest } = node;
+                    return { ...rest };
+                })
+            };
+            dispatch(setPortGraphData(updatedPortData));
+        }
+    };
+
+    
+
     return (
         packets ? (
             <div style={{ position: "relative", width: "100vw", height: "100vh" }}>
                 <div className="reset-button-container">
                     <Button onClick={resetAllNodes} disabled={!isSimulationStable}>모든 노드 위치 리셋</Button>
                 </div>
+                {hostData ? (
+                    <div className="node-name-container" style={{ position: "absolute", top: 50, width: "100%", display: 'flex', justifyContent: 'center' }}>
+                        <Row className="align-items-center">
+                            <Col xs="auto" className="d-flex align-items-center">
+                                <Form.Label style={{ marginRight: '10px' }}><strong>IP Address:</strong></Form.Label>
+                                <Form.Select
+                                    className="ip-selector"
+                                    style={{ width: '200px' }}
+                                    onChange={(e) => { setSelectedIP(e.target.value); setSelectedPort(""); }}
+                                    value={selectedIP}
+                                >
+                                    <option></option>
+                                    {hostData.nodes.map((opt, index) => (
+                                        <option key={index} value={opt.ip_addr}>{opt.ip_addr}</option>
+                                    ))}
+                                </Form.Select>
+                            </Col>
+    
+                            {mode === "port" ? (
+                                <Col xs="auto" className="d-flex align-items-center">
+                                    <Form.Label style={{ marginLeft: '20px', marginRight: '10px' }}><strong>Port:</strong></Form.Label>
+                                    <Form.Select
+                                        style={{ width: '150px' }}
+                                        onChange={(e) => setSelectedPort(e.target.value)}
+                                        value={selectedPort}
+                                    >
+                                        <option></option>
+                                        {availablePorts.map((port, index) => (
+                                            <option key={index} value={port}>{port}</option>
+                                        ))}
+                                    </Form.Select>
+                                </Col>
+                            ) : null}
+   
+                            <Col xs="auto" className="d-flex align-items-center">
+                                <Form.Label style={{ marginLeft: '20px', marginRight: '10px' }}><strong>Nickname:</strong></Form.Label>
+                                <Form.Control
+                                    type="text"
+                                    placeholder="Enter nickname"
+                                    value={nickname}
+                                    onChange={(e) => setNickname(e.target.value)}
+                                    style={{ width: '200px', marginRight: '10px' }}
+                                />
+                                <Button onClick={handleNicknameChange} style={{ marginRight: '10px' }}>Change Nickname</Button>
+                                <Button onClick={handleResetNickname} style={{ marginRight: '10px' }}>Reset Nickname</Button>
+                                <Button onClick={handleResetAllNicknames}>Reset All Nicknames</Button>
+                            </Col>
+                        </Row>
+                    </div>
+                ) : null}
                 <div className="toggle-button-container">
                     <Toggle
                         id='split-toggle'
@@ -477,5 +666,5 @@ export default function GraphView() {
         ) : (
             <Navigate to="/" />
         )
-    );
+    );    
 }
