@@ -602,7 +602,7 @@ export default function GraphView() {
         packets ? (
             <div style={{ position: "relative", width: "100vw", height: "100vh" }}>
                 <div className="reset-button-container">
-                    <Button onClick={resetAllNodes} disabled={!isSimulationStable}>모든 노드 위치 리셋</Button>
+                    <Button onClick={resetAllNodes} disabled={!isSimulationStable}>Reset positions of all nodes</Button>
                 </div>
                 {hostData ? (
                     <div className="node-name-container" style={{ position: "absolute", top: 50, width: "100%", display: 'flex', justifyContent: 'center' }}>
@@ -659,7 +659,7 @@ export default function GraphView() {
                         id='split-toggle'
                         defaultChecked={mode === 'port'}
                         onChange={(e) => dispatch(setMode(e.target.checked ? 'port' : 'host'))} />
-                    <label htmlFor='split-toggle' style={{ marginLeft: '8px' }}>포트별로 호스트 분할</label>
+                    <label htmlFor='split-toggle' style={{ marginLeft: '8px' }}>Split hosts by ports</label>
                 </div>
                 <svg ref={graphRef} style={{ width: '100%', height: '100%' }} />
             </div>
