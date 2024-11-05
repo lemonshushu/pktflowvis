@@ -73,8 +73,10 @@ export default function GraphView() {
             const dst_port = packet._source.layers.tcp ? packet._source.layers.tcp[ 'tcp.dstport' ] : packet._source.layers.udp[ 'udp.dstport' ];
             const frame_size = Number(packet._source.layers.frame[ 'frame.len' ]);
             const l4_proto = packet._source.layers.tcp ? 'TCP' : 'UDP';
-            const l7_proto = Object.keys(packet._source.layers)[ 4 ];
-
+            const layers = Object.keys(packet._source.layers)
+            const l7_proto = layers[ 4 ] === "tcp.segments" ? layers[ 5 ].toUpperCase() 
+                            : (layers[ 4 ] === undefined ? undefined : layers[ 4 ].toUpperCase());
+            
             const src_id = `${src_ip}:${src_port}`;
             const dst_id = `${dst_ip}:${dst_port}`;
 
@@ -93,7 +95,13 @@ export default function GraphView() {
             } else {
                 src_node.traffic_volume += frame_size;
                 if (src_node.l4_proto !== l4_proto) src_node.l4_proto = 'TCP/UDP';
-                if (src_node.l7_proto !== l7_proto) src_node.l7_proto = 'Multiple';
+                if (src_node.l7_proto !== l7_proto) {
+                    if (src_node.l7_proto === undefined) {
+                        src_node.l7_proto = l7_proto;
+                    } else if (l7_proto !== undefined) {
+                        src_node.l7_proto = "Multiple";
+                    }
+                } 
             }
 
             // Add destination node
@@ -111,7 +119,13 @@ export default function GraphView() {
             } else {
                 dst_node.traffic_volume += frame_size;
                 if (dst_node.l4_proto !== l4_proto) dst_node.l4_proto = 'TCP/UDP';
-                if (dst_node.l7_proto !== l7_proto) dst_node.l7_proto = 'Multiple';
+                if (dst_node.l7_proto !== l7_proto) {
+                    if (dst_node.l7_proto === undefined) {
+                        dst_node.l7_proto = l7_proto;
+                    } else if (l7_proto !== undefined) {
+                        dst_node.l7_proto = "Multiple";
+                    }
+                }
             }
 
             // Add link
