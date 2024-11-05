@@ -583,6 +583,7 @@ export default function GraphView() {
                     return { ...rest };
                 })
             };
+            setSelectedIP("");
             dispatch(setHostGraphData(updatedHostData));
         } else if (mode === 'port') {
             const updatedPortData = { 
@@ -592,6 +593,8 @@ export default function GraphView() {
                     return { ...rest };
                 })
             };
+            setSelectedIP("");
+            setSelectedPort("");
             dispatch(setPortGraphData(updatedPortData));
         }
     };
