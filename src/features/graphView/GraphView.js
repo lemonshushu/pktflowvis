@@ -23,6 +23,9 @@ export default function GraphView() {
     const [isSimulationStable, setIsSimulationStable] = useState(false);
     const isSimulationStableRef = useRef(isSimulationStable); 
     const [isNicknameChangeOpen, setIsNicknameChangeOpen] = useState(false);
+    const [isShowProtocolsOpen, setIsShowProtocolsOpen] = useState(false);
+    const [showL4Protocol, setShowL4Protocol] = useState(false);
+    const [showL7Protocol, setShowL7Protocol] = useState(false);
 
     const [selectedIP, setSelectedIP] = useState('');
     const [selectedPort, setSelectedPort] = useState('');
@@ -48,14 +51,14 @@ export default function GraphView() {
 
             // Add source node
             if (!data.nodes.find(node => node.ip_addr === src_ip)) {
-                data.nodes.push({ nick_name: undefined, id: src_ip, ip_addr: src_ip, traffic_volume: frame_size });
+                data.nodes.push({ id: src_ip, ip_addr: src_ip, traffic_volume: frame_size });
             } else {
                 data.nodes.find(node => node.ip_addr === src_ip).traffic_volume += frame_size;
             }
 
             // Add destination node
             if (!data.nodes.find(node => node.ip_addr === dst_ip)) {
-                data.nodes.push({ nick_name: undefined, id: dst_ip, ip_addr: dst_ip, traffic_volume: frame_size });
+                data.nodes.push({ id: dst_ip, ip_addr: dst_ip, traffic_volume: frame_size });
             } else {
                 data.nodes.find(node => node.ip_addr === dst_ip).traffic_volume += frame_size;
             }
@@ -91,7 +94,6 @@ export default function GraphView() {
             let src_node = data.nodes.find(node => node.id === src_id);
             if (!src_node) {
                 src_node = {
-                    nick_name: undefined,
                     id: src_id,
                     ip_addr: src_ip,
                     port: src_port,
@@ -116,7 +118,6 @@ export default function GraphView() {
             let dst_node = data.nodes.find(node => node.id === dst_id);
             if (!dst_node) {
                 dst_node = {
-                    nick_name: undefined,
                     id: dst_id,
                     ip_addr: dst_ip,
                     port: dst_port,
@@ -560,6 +561,14 @@ export default function GraphView() {
         dispatch(resetNicknameMapping());
     };    
     
+    const handleShowProtocolMenuBar = () => {
+        if (isShowProtocolsOpen) {
+            setShowL4Protocol(false);
+            setShowL7Protocol(false);
+        }
+        setIsShowProtocolsOpen(!isShowProtocolsOpen);
+    };
+
     return (
         packets ? (
             <div style={{ position: "relative", width: "100vw", height: "100vh" }}>
@@ -567,7 +576,7 @@ export default function GraphView() {
                 <div style={{ position: 'absolute', top: 70, right: 40, width: "300px", padding: "20px", borderRadius: "15px", border: "1px solid #ccc", backgroundColor: "#fff", boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.1)" }}>
                     
                     {/* Port 분리 토글 버튼 */}
-                    <div style={{ marginBottom: "20px", width: "100%" }}>
+                    <div style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>                        
                         <Toggle
                             id='split-toggle'
                             defaultChecked={mode === 'port'}
@@ -658,6 +667,69 @@ export default function GraphView() {
 
                     {/* 구분선 */}
                     <hr style={{ margin: "20px 0" }} />
+
+                    {/* Show Protocols 메뉴바 */}
+                    { mode === 'port' && (
+                    <div>
+                        <div 
+                            style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}
+                            onClick={() => handleShowProtocolMenuBar()}
+                        >
+                            <strong>Show Protocols</strong>
+                            <span>{isShowProtocolsOpen ? "▼" : "◀"}</span>
+                        </div>
+
+                        {/* Show Protocols 메뉴 아이템 */}
+                        {isShowProtocolsOpen && (
+                            <div>
+                                <div 
+                                    style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}
+                                    onClick={() => setShowL4Protocol(!showL4Protocol)}
+                                >
+                                    <strong>L4 Protocols</strong>
+                                    <span>{showL4Protocol ? "▼" : "◀"}</span>
+                                </div>
+                                {/* L4 Protocol 메뉴 */}
+                                {showL4Protocol && (
+                                    <div style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", borderBottom: "1px dashed #ccc", paddingBottom: "10px" }}>
+                                    {/* <div style={{ marginBottom: "20px", width: "100%" }}> */}
+                                        <Toggle
+                                            id='l4-protocol-toggle'
+                                            checked={showL4Protocol}
+                                            onChange={(e) => setShowL4Protocol(e.target.checked)}
+                                        />
+                                        <label htmlFor='l4-protocol-toggle' style={{ marginLeft: '10px', lineHeight: '0' }}>Show L4 Protocol</label>
+                                    </div>
+                                )}
+                                <div 
+                                    style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}
+                                    onClick={() => setShowL7Protocol(!showL7Protocol)}
+                                >
+                                    <strong>L7 Protocols</strong>
+                                    <span>{showL7Protocol ? "▼" : "◀"}</span>
+                                </div>
+                                {/* L7 Protocol 메뉴 */}
+                                {showL7Protocol && (
+                                    <div style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px",paddingBottom: "10px" }}>
+                                        <Toggle
+                                            id='l7-protocol-toggle'
+                                            checked={showL7Protocol}
+                                            onChange={(e) => setShowL7Protocol(e.target.checked)}
+                                        />
+                                        <label htmlFor='l7-protocol-toggle' style={{ marginLeft: '10px', lineHeight: '0' }}>Show L7 Protocol</label>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>)
+                    
+                    }
+
+                    {/* 구분선 */}
+                    {mode === 'port' && (
+                        <hr style={{ margin: "20px 0" }} />
+                    )}
+
                 </div>
 
                 {/* Graph Area */}
