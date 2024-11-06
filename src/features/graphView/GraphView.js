@@ -5,23 +5,24 @@ import { Navigate } from 'react-router-dom';
 import Toggle from 'react-toggle';
 import "react-toggle/style.css";
 import './GraphView.css';
-import { setHostGraphData, setMode, setPortGraphData } from './graphViewSlice';
-import { Button, Col, Form, Row} from 'react-bootstrap';
+import { setHostGraphData, setMode, setPortGraphData, setNicknameMapping, resetNicknameMapping } from './graphViewSlice';
+import { Button, Form} from 'react-bootstrap';
 
 export default function GraphView() {
     const packets = useSelector((state) => state.data.packets);
     const graphRef = useRef(null);
     const hostData = useSelector((state) => state.graphView.hostGraphData);
     const portData = useSelector((state) => state.graphView.portGraphData);
+    const nicknameMapping = useSelector((state) => state.graphView.nicknameMapping);
     const mode = useSelector((state) => state.graphView.mode);
 
     const simulationRef = useRef(null);
     const nodesRef = useRef([]);
-    const nodeRef = useRef([]);
     const svgRef = useRef(null); // SVG 요소에 대한 참조를 저장할 ref
     const zoomRef = useRef(null); // zoom behavior에 대한 참조를 저장할 ref
     const [isSimulationStable, setIsSimulationStable] = useState(false);
-    const isSimulationStableRef = useRef(isSimulationStable);
+    const isSimulationStableRef = useRef(isSimulationStable); 
+    const [isNicknameChangeOpen, setIsNicknameChangeOpen] = useState(false);
 
     const [selectedIP, setSelectedIP] = useState('');
     const [selectedPort, setSelectedPort] = useState('');
@@ -300,8 +301,6 @@ export default function GraphView() {
                     event.stopPropagation(); // Prevent click from propagating to zoom
                 });
 
-            nodeRef.current = node;
-
             // Add tooltips
             const tooltip = d3.select("body").append("div")
                 .attr("class", "tooltip")
@@ -332,8 +331,8 @@ export default function GraphView() {
                 .selectAll("text")
                 .data(nodes)
                 .join("text")
-                .text(d => d.nick_name ? d.nick_name : (mode === 'host' ? d.ip_addr : `${d.ip_addr}:${d.port}`))
-                // .text(d=> d.nick_name ? d.nick_name : d.id)
+                // .text(d => d.nick_name ? d.nick_name : (mode === 'host' ? d.ip_addr : `${d.ip_addr}:${d.port}`))
+                .text(d => getNicknameLabel(d, mode))
                 .attr("font-size", "10px")
                 .attr("fill", "#555")
                 .attr("dy", "-1em")
@@ -345,12 +344,10 @@ export default function GraphView() {
             
             simulation.stop();
 
-            // 필요한 만큼 tick 실행
             for (let i = 0; i < 300; ++i) {
                 simulation.tick();
             }
 
-            // 노드들의 초기 위치 저장
             nodes.forEach(d => {
                 d.originalX = d.x;
                 d.originalY = d.y;
@@ -427,23 +424,6 @@ export default function GraphView() {
             };
         };
 
-        // const getTooltipContent = (d, mode) => {
-        //     if (mode === 'host') {
-        //         return `IP: ${d.ip_addr}<br>Traffic Volume: ${d.traffic_volume}`;
-        //     } else {
-        //         return `IP: ${d.ip_addr}<br>Port: ${d.port}<br>Traffic Volume: ${d.traffic_volume}<br>L4 Protocol: ${d.l4_proto}<br>L7 Protocol: ${d.l7_proto}`;
-        //     }
-        // };
-
-        const getTooltipContent = (d, mode) => {
-            if (mode === 'host') {
-                return `${d.nick_name ? `Nickname: ${d.nick_name}<br>` : ''}IP: ${d.ip_addr}<br>Traffic Volume: ${d.traffic_volume}`;
-            } else {
-                return `${d.nick_name ? `Nickname: ${d.nick_name}<br>` : ''}IP: ${d.ip_addr}<br>Port: ${d.port}<br>Traffic Volume: ${d.traffic_volume}<br>L4 Protocol: ${d.l4_proto}<br>L7 Protocol: ${d.l7_proto}`;
-            }
-        }        
-        
-
         if (mode === 'host') {
             const links = hostData.links.map(d => ({ ...d }));
             const nodes = hostData.nodes.map(d => ({ ...d }));
@@ -455,6 +435,30 @@ export default function GraphView() {
         }
 
     }, [ hostData, portData, mode]);
+
+    useEffect(() => {
+        if (!hostData || !portData) return;
+    
+        d3.select(graphRef.current).selectAll("text")
+            .text(d => getNicknameLabel(d, mode));
+    
+        const tooltip = d3.select("body").select(".tooltip");
+        d3.select(graphRef.current).selectAll("circle")
+            .on("mouseover", (event, d) => {
+                tooltip
+                    .style("opacity", 1)
+                    .html(getTooltipContent(d, mode));
+            })
+            .on("mousemove", event => {
+                tooltip
+                    .style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 20) + "px");
+            })
+            .on("mouseout", () => {
+                tooltip.style("opacity", 0);
+            });
+    }, [nicknameMapping, mode]);
+    
 
     useEffect(() => {
         if (mode === 'port' && selectedIP) {
@@ -475,6 +479,23 @@ export default function GraphView() {
         setAvailablePorts([]);
     }, [mode]);
     
+    const getNicknameLabel = (node, mode) => {
+        if (mode === 'host') {
+            return nicknameMapping[node.ip_addr] || node.ip_addr;
+        } else {
+            const key = `${node.ip_addr}:${node.port}`;
+            return nicknameMapping[key] || `${node.ip_addr}:${node.port}`;
+        }
+    };       
+    
+    const getTooltipContent = (node, mode) => {
+        if (mode === 'host') {
+            return `${nicknameMapping[node.ip_addr] ? `${nicknameMapping[node.ip_addr]}<br>` : ''}IP: ${node.ip_addr}<br>Traffic Volume: ${node.traffic_volume}`;
+        } else {
+            const key = `${node.ip_addr}:${node.port}`;
+            return `${nicknameMapping[key] ? `${nicknameMapping[key]}<br>` : ''}IP: ${node.ip_addr}<br>Port: ${node.port}<br>Traffic Volume: ${node.traffic_volume}<br>L4 Protocol: ${node.l4_proto}<br>L7 Protocol: ${node.l7_proto}`;
+        }
+    };
 
     function resetAllNodes() {
         if (nodesRef.current && simulationRef.current && simulationRef.current.alpha() < 0.05) {
@@ -504,35 +525,16 @@ export default function GraphView() {
         }
     
         if (mode === 'host') {
-            const updatedHostData = { 
-                ...hostData, 
-                nodes: hostData.nodes.map(node => {
-                    if (node.ip_addr === selectedIP) {
-                        return { ...node, nick_name: nickname };
-                    }
-                    return node;
-                })
-            };
-            dispatch(setHostGraphData(updatedHostData));
+            dispatch(setNicknameMapping({ [selectedIP]: nickname }));
         } else if (mode === 'port') {
             if (!selectedPort) {
                 alert("Please select a port.");
                 return;
             }
-    
-            const updatedPortData = { 
-                ...portData, 
-                nodes: portData.nodes.map(node => {
-                    if (node.ip_addr === selectedIP && node.port === selectedPort) {
-                        return { ...node, nick_name: nickname };
-                    }
-                    return node;
-                })
-            };
-            dispatch(setPortGraphData(updatedPortData));
+            const key = `${selectedIP}:${selectedPort}`;
+            dispatch(setNicknameMapping({ [key]: nickname }));
         }
     
-        // Reset nickname input
         setNickname('');
     };
 
@@ -541,133 +543,128 @@ export default function GraphView() {
             alert("Please select an IP address.");
             return;
         }
-
+    
         if (mode === 'host') {
-            const updatedHostData = { 
-                ...hostData, 
-                nodes: hostData.nodes.map(node => {
-                    if (node.ip_addr === selectedIP) {
-                        const { nick_name, ...rest } = node;
-                        return { ...rest };
-                    }
-                    return node;
-                })
-            };
-            dispatch(setHostGraphData(updatedHostData));
+            dispatch(resetNicknameMapping(selectedIP));
         } else if (mode === 'port') {
             if (!selectedPort) {
                 alert("Please select a port.");
                 return;
             }
-
-            const updatedPortData = { 
-                ...portData, 
-                nodes: portData.nodes.map(node => {
-                    if (node.ip_addr === selectedIP && node.port === selectedPort) {
-                        const { nick_name, ...rest } = node;
-                        return { ...rest };
-                    }
-                    return node;
-                })
-            };
-            dispatch(setPortGraphData(updatedPortData));
+            const key = `${selectedIP}:${selectedPort}`;
+            dispatch(resetNicknameMapping(key));
         }
     };
 
     const handleResetAllNicknames = () => {
-        if (mode === 'host') {
-            const updatedHostData = { 
-                ...hostData, 
-                nodes: hostData.nodes.map(node => {
-                    const { nick_name, ...rest } = node;
-                    return { ...rest };
-                })
-            };
-            setSelectedIP("");
-            dispatch(setHostGraphData(updatedHostData));
-        } else if (mode === 'port') {
-            const updatedPortData = { 
-                ...portData, 
-                nodes: portData.nodes.map(node => {
-                    const { nick_name, ...rest } = node;
-                    return { ...rest };
-                })
-            };
-            setSelectedIP("");
-            setSelectedPort("");
-            dispatch(setPortGraphData(updatedPortData));
-        }
-    };
-
+        dispatch(resetNicknameMapping());
+    };    
     
-
     return (
         packets ? (
             <div style={{ position: "relative", width: "100vw", height: "100vh" }}>
-                <div className="reset-button-container">
-                    <Button onClick={resetAllNodes} disabled={!isSimulationStable}>Reset positions of all nodes</Button>
-                </div>
-                {hostData ? (
-                    <div className="node-name-container" style={{ position: "absolute", top: 50, width: "100%", display: 'flex', justifyContent: 'center' }}>
-                        <Row className="align-items-center">
-                            <Col xs="auto" className="d-flex align-items-center">
-                                <Form.Label style={{ marginRight: '10px' }}><strong>IP Address:</strong></Form.Label>
-                                <Form.Select
-                                    className="ip-selector"
-                                    style={{ width: '200px' }}
-                                    onChange={(e) => { setSelectedIP(e.target.value); setSelectedPort(""); }}
-                                    value={selectedIP}
-                                >
-                                    <option></option>
-                                    {hostData.nodes.map((opt, index) => (
-                                        <option key={index} value={opt.ip_addr}>{opt.ip_addr}</option>
-                                    ))}
-                                </Form.Select>
-                            </Col>
-    
-                            {mode === "port" ? (
-                                <Col xs="auto" className="d-flex align-items-center">
-                                    <Form.Label style={{ marginLeft: '20px', marginRight: '10px' }}><strong>Port:</strong></Form.Label>
+                {/* Control Panel */}
+                <div style={{ position: 'absolute', top: 70, right: 40, width: "300px", padding: "20px", borderRadius: "15px", border: "1px solid #ccc", backgroundColor: "#fff", boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.1)" }}>
+                    
+                    {/* Port 분리 토글 버튼 */}
+                    <div style={{ marginBottom: "20px", width: "100%" }}>
+                        <Toggle
+                            id='split-toggle'
+                            defaultChecked={mode === 'port'}
+                            onChange={(e) => dispatch(setMode(e.target.checked ? 'port' : 'host'))}
+                        />
+                        <label htmlFor='split-toggle' style={{ marginLeft: '10px',  lineHeight: '0'}}>Split Hosts by Ports</label>
+                    </div>
+
+                    {/* 모든 위치 초기화 버튼 */}
+                    <div style={{ marginBottom: "20px", width: "100%" }}>
+                        <Button onClick={resetAllNodes} style={{ width: "100%" }} disabled={!isSimulationStable}>Reset All Positions</Button>
+                    </div>
+
+                    {/* 구분선 */}
+                    <hr style={{ margin: "20px 0" }} />
+
+                    {/* Nickname Change 메뉴 */}
+                    <div>
+                        <div 
+                            style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}
+                            onClick={() => setIsNicknameChangeOpen(!isNicknameChangeOpen)}
+                        >
+                            <strong>Nickname Change</strong>
+                            <span>{isNicknameChangeOpen ? "▼" : "◀"}</span> {/* "◀ ▲ ▶ ▼" */}
+                        </div>
+
+                        {/* Nickname Change 메뉴 아이템 (계층 구조로 보이도록 하되 너비는 줄어들지 않음) */}
+                        {isNicknameChangeOpen && (
+                            <div style={{ marginBottom: "20px", width: "100%" }}>
+                                {/* IP Address 선택 */}
+                                <div style={{ marginBottom: "20px", width: "100%" }}>
+                                    <Form.Label><strong>IP Address:</strong></Form.Label>
                                     <Form.Select
-                                        style={{ width: '150px' }}
-                                        onChange={(e) => setSelectedPort(e.target.value)}
-                                        value={selectedPort}
+                                        className="ip-selector"
+                                        style={{ width: '100%' }}
+                                        onChange={(e) => { setSelectedIP(e.target.value); setSelectedPort(""); }}
+                                        value={selectedIP}
                                     >
                                         <option></option>
-                                        {availablePorts.map((port, index) => (
-                                            <option key={index} value={port}>{port}</option>
+                                        {hostData?.nodes.map((opt, index) => (
+                                            <option key={index} value={opt.ip_addr}>{opt.ip_addr}</option>
                                         ))}
                                     </Form.Select>
-                                </Col>
-                            ) : null}
-   
-                            <Col xs="auto" className="d-flex align-items-center">
-                                <Form.Label style={{ marginLeft: '20px', marginRight: '10px' }}><strong>Nickname:</strong></Form.Label>
-                                <Form.Control
-                                    type="text"
-                                    placeholder="Enter nickname"
-                                    value={nickname}
-                                    onChange={(e) => setNickname(e.target.value)}
-                                    style={{ width: '200px', marginRight: '10px' }}
-                                />
-                                <Button onClick={handleNicknameChange} style={{ marginRight: '10px' }}>Change Nickname</Button>
-                                <Button onClick={handleResetNickname} style={{ marginRight: '10px' }}>Reset Nickname</Button>
-                                <Button onClick={handleResetAllNicknames}>Reset All Nicknames</Button>
-                            </Col>
-                        </Row>
+                                </div>
+
+                                {/* Port Selection (Only visible in 'port' mode) */}
+                                {mode === 'port' && (
+                                    <div style={{ marginBottom: "20px", width: "100%" }}>
+                                        <Form.Label><strong>Port:</strong></Form.Label>
+                                        <Form.Select
+                                            style={{ width: '100%' }}
+                                            onChange={(e) => setSelectedPort(e.target.value)}
+                                            value={selectedPort}
+                                        >
+                                            <option></option>
+                                            {availablePorts.map((port, index) => (
+                                                <option key={index} value={port}>{port}</option>
+                                            ))}
+                                        </Form.Select>
+                                    </div>
+                                )}
+
+                                {/* Nickname Input */}
+                                <div style={{ marginBottom: "20px", width: "100%" }}>
+                                    <Form.Label><strong>Nickname:</strong></Form.Label>
+                                    <Form.Control
+                                        type="text"
+                                        placeholder="Enter nickname"
+                                        value={nickname}
+                                        onChange={(e) => setNickname(e.target.value)}
+                                        style={{ width: '100%' }}
+                                    />
+                                </div>
+
+                                {/* Change 및 Reset 버튼을 한 줄에 배치 */}
+                                <div style={{ marginBottom: "20px", width: "100%", display: "flex", justifyContent: "space-between" }}>
+                                    <Button onClick={handleNicknameChange} style={{ width: "48%" }} disabled={!isSimulationStable}>Change</Button>
+                                    <Button onClick={handleResetNickname} style={{ width: "48%" }} disabled={!isSimulationStable}>Reset</Button>
+                                </div>
+
+                                {/* Reset All Nicknames 버튼 */}
+                                <div style={{ marginBottom: "20px", width: "100%" }}>
+                                    <Button onClick={handleResetAllNicknames} style={{ width: "100%" }} disabled={!isSimulationStable}>Reset All Nicknames</Button>
+                                </div>
+                            </div>
+                        )}
                     </div>
-                ) : null}
-                <div className="toggle-button-container">
-                    <Toggle
-                        id='split-toggle'
-                        defaultChecked={mode === 'port'}
-                        onChange={(e) => dispatch(setMode(e.target.checked ? 'port' : 'host'))} />
-                    <label htmlFor='split-toggle' style={{ marginLeft: '8px' }}>Split hosts by ports</label>
+
+                    {/* 구분선 */}
+                    <hr style={{ margin: "20px 0" }} />
                 </div>
+
+                {/* Graph Area */}
                 <svg ref={graphRef} style={{ width: '100%', height: '100%' }} />
             </div>
         ) : (
             <Navigate to="/" />
         )
-    );    
+    );
 }
