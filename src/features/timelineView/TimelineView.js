@@ -1,11 +1,11 @@
-import { faChevronLeft, faCirclePlus, faPlus } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { useEffect } from 'react';
-import { Button, Col, Container, Row } from 'react-bootstrap';
-import { useDispatch, useSelector } from 'react-redux';
-import { Link, Navigate } from 'react-router-dom';
+import {faChevronLeft, faPlus} from '@fortawesome/free-solid-svg-icons';
+import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
+import {useEffect} from 'react';
+import {Button, Col, Container, Row} from 'react-bootstrap';
+import {useDispatch, useSelector} from 'react-redux';
+import {Link, Navigate} from 'react-router-dom';
 import Toggle from 'react-toggle';
-import { addEntry } from './timelineViewSlice';
+import {addEntry} from './timelineViewSlice';
 import TimelineEntry from './components/TimelineEntry';
 
 export default function TimelineView() {

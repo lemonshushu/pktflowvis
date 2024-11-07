@@ -5,7 +5,7 @@ export const timelineViewSlice = createSlice({
     initialState: {
         alignTime: false, // Whether to align the time of multiple timeline entries
         timelineData: [],
-        timelineViewOpts: [],
+        formOpts: [],
         formSelections: [],
     },
     reducers: {
@@ -21,8 +21,8 @@ export const timelineViewSlice = createSlice({
             state.timelineData.splice(action.payload, 1);
             state.formSelections.splice(action.payload, 1);
         },
-        setTimelineViewOpts: (state, action) => {
-            state.timelineViewOpts = action.payload;
+        setFormOpts: (state, action) => {
+            state.formOpts = action.payload;
         },
         setFormSelections: (state, action) => {
             const {index, selection} = action.payload;
@@ -31,6 +31,6 @@ export const timelineViewSlice = createSlice({
     },
 });
 
-export const { addEntry, toggleAlignTime, removeEntry, setTimelineViewOpts, setFormSelections } = timelineViewSlice.actions;
+export const { addEntry, toggleAlignTime, removeEntry, setFormOpts, setFormSelections } = timelineViewSlice.actions;
 
 export default timelineViewSlice.reducer;

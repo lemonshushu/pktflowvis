@@ -6,12 +6,12 @@ import { setFormSelections } from '../timelineViewSlice';
 
 export default function TimelineEntry({ entryIndex }) {
     const dispatch = useDispatch();
-    const timelineViewOpts = useSelector((state) => state.timelineView.timelineViewOpts);
+    const formOpts = useSelector((state) => state.timelineView.formOpts);
     const formSelections = useSelector((state) => state.timelineView.formSelections);
     const formSelection = formSelections[entryIndex];
 
     const onHostAChange = (e) => {
-        dispatch(setFormSelections({index: entryIndex, selection: {...formSelection, hostA: e.target.value, hostAIndex: timelineViewOpts.findIndex((opt) => opt.ip_addr === e.target.value)} }));
+        dispatch(setFormSelections({index: entryIndex, selection: {...formSelection, hostA: e.target.value, hostAIndex: formOpts.findIndex((opt) => opt.ip_addr === e.target.value)} }));
     };
 
     const onPortAChange = (e) => {
@@ -19,7 +19,7 @@ export default function TimelineEntry({ entryIndex }) {
     };
 
     const onHostBChange = (e) => {
-        dispatch(setFormSelections({index: entryIndex, selection:  {...formSelection,hostB: e.target.value, hostBIndex: timelineViewOpts.findIndex((opt) => opt.ip_addr === e.target.value)} }));
+        dispatch(setFormSelections({index: entryIndex, selection:  {...formSelection,hostB: e.target.value, hostBIndex: formOpts.findIndex((opt) => opt.ip_addr === e.target.value)} }));
     };
 
     const onPortBChange = (e) => {
@@ -53,7 +53,7 @@ export default function TimelineEntry({ entryIndex }) {
                         <Form.Label><strong>Host A: </strong></Form.Label>
                         <Form.Select className="ms-3" style={{ width: 250 }} onChange={onHostAChange} value={formSelection.hostA}>
                             <option></option>
-                            {timelineViewOpts.map((opt, index) => {
+                            {formOpts.map((opt, index) => {
                                 return (<option key={index}>{opt.ip_addr}</option>);
                             })}
                         </Form.Select>
@@ -61,7 +61,7 @@ export default function TimelineEntry({ entryIndex }) {
                     <Col xs={3} className="d-flex align-items-center justify-content-center">
                         <Form.Label>Port: </Form.Label>
                         <Form.Select className="ms-3" style={{ width: 150 }} onChange={onPortAChange} value={formSelection.portA}>
-                            {timelineViewOpts[ formSelection.hostAIndex ] ? timelineViewOpts[ formSelection.hostAIndex ].ports.map((port, index) => {
+                            {formOpts[ formSelection.hostAIndex ] ? formOpts[ formSelection.hostAIndex ].ports.map((port, index) => {
                                 return (<option key={index}>{port}</option>);
                             }) : null
                             }
@@ -79,14 +79,14 @@ export default function TimelineEntry({ entryIndex }) {
                         <Form.Label><strong>Host B: </strong></Form.Label>
                         <Form.Select className="ms-3" style={{ width: 250 }} onChange={onHostBChange} value={formSelection.hostB}>
                             <option></option>
-                            {timelineViewOpts.map((opt, index) => {
+                            {formOpts.map((opt, index) => {
                                 return (<option key={index}>{opt.ip_addr}</option>);
                             })}</Form.Select>
                     </Col>
                     <Col xs={3} className="d-flex align-items-center justify-content-center">
                         <Form.Label>Port: </Form.Label>
                         <Form.Select className="ms-3" style={{ width: 150 }} onChange={onPortBChange} value={formSelection.portB}>
-                            {timelineViewOpts[ formSelection.hostBIndex ] ? timelineViewOpts[ formSelection.hostBIndex ].ports.map((port, index) => {
+                            {formOpts[ formSelection.hostBIndex ] ? formOpts[ formSelection.hostBIndex ].ports.map((port, index) => {
                                 return (<option key={index}>{port}</option>);
                             }) : null
                             }
