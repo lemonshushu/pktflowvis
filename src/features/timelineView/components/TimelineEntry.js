@@ -10,49 +10,27 @@ export default function TimelineEntry({ entryIndex }) {
     const formSelections = useSelector((state) => state.timelineView.formSelections);
     const formSelection = formSelections[entryIndex];
 
-    // const [ hostA, setHostA ] = useState("");
-    // const [ hostAIndex, setHostAIndex ] = useState(null);
-    // const [ portA, setPortA ] = useState("");
-    // const [ hostB, setHostB ] = useState("");
-    // const [ hostBIndex, setHostBIndex ] = useState(null);
-    // const [ portB, setPortB ] = useState("");
-    // const [ radioASelected, setRadioASelected ] = useState(true);
-
-
     const onHostAChange = (e) => {
-        // setHostA(e.target.value);
-        // setHostAIndex(timelineViewOpts.findIndex((opt) => opt.ip_addr === e.target.value));
-        // dispatch(setFormSelections({...formSelections, hostA: e.target.value, hostAIndex: timelineViewOpts.findIndex((opt) => opt.ip_addr === e.target.value)}));
         dispatch(setFormSelections({index: entryIndex, selection: {...formSelection, hostA: e.target.value, hostAIndex: timelineViewOpts.findIndex((opt) => opt.ip_addr === e.target.value)} }));
     };
 
     const onPortAChange = (e) => {
-        // setPortA(e.target.value);
-        // dispatch(setFormSelections({...formSelections, portA: e.target.value}));
         dispatch(setFormSelections({index: entryIndex, selection: {...formSelection, portA: e.target.value}}));
     };
 
     const onHostBChange = (e) => {
-        // setHostB(e.target.value);
-        // setHostBIndex(timelineViewOpts.findIndex((opt) => opt.ip_addr === e.target.value));
-        // dispatch(setFormSelections( {...formSelections,hostB: e.target.value, hostBIndex: timelineViewOpts.findIndex((opt) => opt.ip_addr === e.target.value)}));
         dispatch(setFormSelections({index: entryIndex, selection:  {...formSelection,hostB: e.target.value, hostBIndex: timelineViewOpts.findIndex((opt) => opt.ip_addr === e.target.value)} }));
     };
 
     const onPortBChange = (e) => {
-        // setPortB(e.target.value);
-        // dispatch(setFormSelections( {...formSelections,portB: e.target.value}));
         dispatch(setFormSelections({index: entryIndex, selection: {...formSelection,portB: e.target.value}}));
     };
 
     const onRadioChange = (e) => {
-        // setRadioASelected(e.target.value === "A");
-        // dispatch(setFormSelections( {...formSelections,radioASelected: e.target.value === "A"}));
         dispatch(setFormSelections({index: entryIndex, selection: {...formSelection,radioASelected: e.target.value === "A"} }));
     };
 
     const onResetClick = () => {
-        // dispatch(setFormSelections( {hostA: "", hostAIndex: null, portA: "", hostB: "", hostBIndex: null, portB: "", radioASelected: true}));
         dispatch(setFormSelections({index: entryIndex, selection: {hostA: "", hostAIndex: null, portA: "", hostB: "", hostBIndex: null, portB: "", radioASelected: true}}));
     }
 

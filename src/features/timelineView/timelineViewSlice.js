@@ -19,6 +19,7 @@ export const timelineViewSlice = createSlice({
         removeEntry: (state, action) => {
             // action.payload is entry index
             state.timelineData.splice(action.payload, 1);
+            state.formSelections.splice(action.payload, 1);
         },
         setTimelineViewOpts: (state, action) => {
             state.timelineViewOpts = action.payload;
