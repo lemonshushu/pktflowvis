@@ -341,6 +341,7 @@ export default function GraphView() {
                 .on("click", (event, d) => {
                     dispatch(addEntry({ metadata: null, formSelections: { hostA: d.ip_addr, portA: d.port, hostB: "", portB: "", radioASelected: true  } })); // Add new entry in TimelineView
                     dispatch(setCurrentView('timeline'));
+                    d3.selectAll(".tooltip").remove();
                 });
 
             // Add tooltips
@@ -541,6 +542,9 @@ export default function GraphView() {
 
     const onNavigateToTimeline = () => {
         dispatch(setCurrentView('timeline'));
+
+        // Clear all tooltips
+        d3.selectAll(".tooltip").remove();
     }
 
 

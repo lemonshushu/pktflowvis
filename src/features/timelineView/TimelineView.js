@@ -8,6 +8,7 @@ import Toggle from 'react-toggle';
 import { addEntry } from './timelineViewSlice';
 import TimelineEntry from './components/TimelineEntry';
 import { setCurrentView } from '../data/dataSlice';
+import * as d3 from 'd3';
 
 export default function TimelineView() {
     const packets = useSelector((state) => state.data.packets);
