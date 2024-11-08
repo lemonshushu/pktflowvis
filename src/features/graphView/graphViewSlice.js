@@ -5,7 +5,7 @@ export const graphViewSlice = createSlice({
     initialState: {
         hostGraphData: null,
         portGraphData: null,
-        nicknameMapping: {},
+        // nicknameMapping: {},
         mode: 'host',
     },
     reducers: {
@@ -15,22 +15,22 @@ export const graphViewSlice = createSlice({
         setPortGraphData: (state, action) => {
             state.portGraphData = action.payload;
         },
-        setNicknameMapping: (state, action) => {
-            state.nicknameMapping = {
-                ...state.nicknameMapping,
-                ...action.payload
-            };
-        },
-        resetNicknameMapping: (state, action) => {
-            if (action.payload) {
-                // 특정 키의 닉네임 초기화
-                const { [action.payload]: _, ...rest } = state.nicknameMapping;
-                state.nicknameMapping = rest;
-            } else {
-                // 전체 초기화
-                state.nicknameMapping = {};
-            }
-        },
+        // setNicknameMapping: (state, action) => {
+        //     state.nicknameMapping = {
+        //         ...state.nicknameMapping,
+        //         ...action.payload
+        //     };
+        // },
+        // resetNicknameMapping: (state, action) => {
+        //     if (action.payload) {
+        //         // 특정 키의 닉네임 초기화
+        //         const { [action.payload]: _, ...rest } = state.nicknameMapping;
+        //         state.nicknameMapping = rest;
+        //     } else {
+        //         // 전체 초기화
+        //         state.nicknameMapping = {};
+        //     }
+        // },
         setMode: (state, action) => {
             state.mode = action.payload;
         }
