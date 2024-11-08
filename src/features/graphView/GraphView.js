@@ -1,10 +1,16 @@
+import { faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import * as d3 from 'd3';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Button } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
+import Toggle from 'react-toggle';
 import "react-toggle/style.css";
 import './GraphView.css';
-import { setHostGraphData, setPortGraphData } from './graphViewSlice';
+import { setHostGraphData, setMode, setPortGraphData } from './graphViewSlice';
+import { addEntry, setFormOpts } from '../timelineView/timelineViewSlice';
+import { setCurrentView } from '../data/dataSlice';
 import ControlPanel from './components/ControlPanel';
 import { setIsSimulationStable } from './components/controlPanelSlice';
 
@@ -16,6 +22,7 @@ export default function GraphView() {
     const portData = useSelector((state) => state.graphView.portGraphData);
     const nicknameMapping = useSelector((state) => state.controlPanel.nicknameMapping);
     const mode = useSelector((state) => state.graphView.mode);
+    const currentView = useSelector((state) => state.data.currentView);
     const isSimulationStable = useSelector((state) => state.controlPanel.isSimulationStable);
 
     const simulationRef = useRef(null);
@@ -66,6 +73,7 @@ export default function GraphView() {
     const initPortData = () => {
         // Initialize port data with nodes and links
         const data = { nodes: [], links: [] };
+        const timelineViewFormOpts = [ { ip_addr: "", ports: [ "" ] } ];
 
         packets.forEach((packet) => {
             const src_ip = packet._source.layers.ip[ 'ip.src_host' ];
@@ -93,6 +101,12 @@ export default function GraphView() {
                     l7_proto: l7_proto
                 };
                 data.nodes.push(src_node);
+
+                if (!timelineViewFormOpts.find(port => port.ip_addr === src_ip)) {
+                    timelineViewFormOpts.push({ ip_addr: src_ip, ports: [ "", src_port ] });
+                } else {
+                    timelineViewFormOpts.find(port => port.ip_addr === src_ip).ports.push(src_port);
+                }
             } else {
                 src_node.traffic_volume += frame_size;
                 if (src_node.l4_proto !== l4_proto) src_node.l4_proto = 'TCP/UDP';
@@ -102,7 +116,7 @@ export default function GraphView() {
                     } else if (l7_proto !== undefined) {
                         src_node.l7_proto = "Multiple";
                     }
-                } 
+                }
             }
 
             // Add destination node
@@ -117,6 +131,12 @@ export default function GraphView() {
                     l7_proto: l7_proto
                 };
                 data.nodes.push(dst_node);
+
+                if (!timelineViewFormOpts.find(port => port.ip_addr === dst_ip)) {
+                    timelineViewFormOpts.push({ ip_addr: dst_ip, ports: [ "", dst_port ] });
+                } else {
+                    timelineViewFormOpts.find(port => port.ip_addr === dst_ip).ports.push(dst_port);
+                }
             } else {
                 dst_node.traffic_volume += frame_size;
                 if (dst_node.l4_proto !== l4_proto) dst_node.l4_proto = 'TCP/UDP';
@@ -142,8 +162,22 @@ export default function GraphView() {
             }
         });
 
+        // Sort ports in AvailableHostPorts in ascending order
+        timelineViewFormOpts.forEach(port => port.ports.sort((a, b) => a - b));
+
+        // Sort hosts in AvailableHostPorts in ascending order
+        timelineViewFormOpts.sort((a, b) => a.ip_addr.localeCompare(b.ip_addr));
+
+
+        dispatch(setFormOpts(timelineViewFormOpts));
+
         return data;
     };
+
+
+    useEffect(() => {
+        setCurrentView('graph');
+    }, [ dispatch ]);
 
     useEffect(() => {
         if (packets && !hostData) {
@@ -277,7 +311,22 @@ export default function GraphView() {
                 .data(links)
                 .join("line")
                 .attr("stroke-width", d => Math.sqrt(d.value))
-                .attr("marker-end", "url(#arrowhead)");
+                .attr("marker-end", "url(#arrowhead)")
+                // Highlight the link with black stroke on hover && make it thicker
+                .on("mouseover", function (event) {
+                    d3.select(this).attr("stroke", "#000").attr("stroke-width", 2);
+                })
+                .on("mouseout", function (event) {
+                    d3.select(this).attr("stroke", "#999").attr("stroke-width", 1);
+                })
+                .on("click", (event) => {
+                    const hostA = event.srcElement.__data__.src_ip;
+                    const portA = event.srcElement.__data__.src_port;
+                    const hostB = event.srcElement.__data__.dst_ip;
+                    const portB = event.srcElement.__data__.dst_port;
+                    dispatch(addEntry({ metadata: { hostA, portA, hostB, portB }, formSelections: { hostA, portA, hostB, portB, radioASelected: true  } }));
+                    dispatch(setCurrentView('timeline'));
+                });
 
             // Add nodes
             const node = container.append("g")
@@ -289,8 +338,9 @@ export default function GraphView() {
                 .attr("fill", d => colorScale(d.ip_addr))
                 // .on("dblclick", resetNodePosition)
                 .on("dblclick.zoom", null) // Prevent zoom on double-click on nodes
-                .on("click", (event) => {
-                    event.stopPropagation(); // Prevent click from propagating to zoom
+                .on("click", (event, d) => {
+                    dispatch(addEntry({ metadata: null, formSelections: { hostA: d.ip_addr, portA: d.port, hostB: "", portB: "", radioASelected: true  } })); // Add new entry in TimelineView
+                    dispatch(setCurrentView('timeline'));
                 });
 
             // Add tooltips
@@ -308,14 +358,20 @@ export default function GraphView() {
                 tooltip
                     .style("opacity", 1)
                     .html(getTooltipContent(d, mode));
+
+                    // Highlight the node with outline on hover
+                    d3.select(event.target).attr("stroke", "#000");
+
             })
                 .on("mousemove", event => {
                     tooltip
                         .style("left", (event.pageX + 10) + "px")
                         .style("top", (event.pageY - 20) + "px");
                 })
-                .on("mouseout", () => {
+                .on("mouseout", (event) => {
                     tooltip.style("opacity", 0);
+                    // Remove the outline on mouseout
+                    d3.select(event.target).attr("stroke", null);
                 });
 
             // Add labels
@@ -332,7 +388,7 @@ export default function GraphView() {
                     event.stopPropagation();
                 });
 
-            
+
             simulation.stop();
 
             for (let i = 0; i < 300; ++i) {
@@ -345,36 +401,36 @@ export default function GraphView() {
             });
             nodesRef.current = nodes;
             node.call(drag(simulation));
-            
+
             simulation.on("tick", () => {
                 link
                     .attr("x1", d => {
-                    const sourceRadius = sizeScale(d.source.traffic_volume);
-                    const dx = d.target.x - d.source.x;
-                    const dy = d.target.y - d.source.y;
-                    const angle = Math.atan2(dy, dx);
-                    return d.source.x + Math.cos(angle) * sourceRadius;
+                        const sourceRadius = sizeScale(d.source.traffic_volume);
+                        const dx = d.target.x - d.source.x;
+                        const dy = d.target.y - d.source.y;
+                        const angle = Math.atan2(dy, dx);
+                        return d.source.x + Math.cos(angle) * sourceRadius;
                     })
                     .attr("y1", d => {
-                    const sourceRadius = sizeScale(d.source.traffic_volume);
-                    const dx = d.target.x - d.source.x;
-                    const dy = d.target.y - d.source.y;
-                    const angle = Math.atan2(dy, dx);
-                    return d.source.y + Math.sin(angle) * sourceRadius;
+                        const sourceRadius = sizeScale(d.source.traffic_volume);
+                        const dx = d.target.x - d.source.x;
+                        const dy = d.target.y - d.source.y;
+                        const angle = Math.atan2(dy, dx);
+                        return d.source.y + Math.sin(angle) * sourceRadius;
                     })
                     .attr("x2", d => {
-                    const targetRadius = sizeScale(d.target.traffic_volume);
-                    const dx = d.target.x - d.source.x;
-                    const dy = d.target.y - d.source.y;
-                    const angle = Math.atan2(dy, dx);
-                    return d.target.x - Math.cos(angle) * targetRadius;
+                        const targetRadius = sizeScale(d.target.traffic_volume);
+                        const dx = d.target.x - d.source.x;
+                        const dy = d.target.y - d.source.y;
+                        const angle = Math.atan2(dy, dx);
+                        return d.target.x - Math.cos(angle) * targetRadius;
                     })
                     .attr("y2", d => {
-                    const targetRadius = sizeScale(d.target.traffic_volume);
-                    const dx = d.target.x - d.source.x;
-                    const dy = d.target.y - d.source.y;
-                    const angle = Math.atan2(dy, dx);
-                    return d.target.y - Math.sin(angle) * targetRadius;
+                        const targetRadius = sizeScale(d.target.traffic_volume);
+                        const dx = d.target.x - d.source.x;
+                        const dy = d.target.y - d.source.y;
+                        const angle = Math.atan2(dy, dx);
+                        return d.target.y - Math.sin(angle) * targetRadius;
                     });
 
                 node
@@ -418,7 +474,7 @@ export default function GraphView() {
             createGraph(nodes, links, 'port');
         }
 
-    }, [ hostData, portData, mode]);
+    }, [ hostData, portData, mode ]);
 
     useEffect(() => {
         if (!hostData || !portData) return;
@@ -483,16 +539,26 @@ export default function GraphView() {
         }
     }
 
-    return (
-        packets ? (
-            <div style={{ position: "relative", width: "100vw", height: "100vh" }}>
-                <ControlPanel resetAllNodes={resetAllNodes}/>
+    const onNavigateToTimeline = () => {
+        dispatch(setCurrentView('timeline'));
+    }
 
-                {/* Graph Area */}
-                <svg ref={graphRef} style={{ width: '100%', height: '100%' }} />
-            </div>
-        ) : (
-            <Navigate to="/" />
-        )
-    );
+
+    switch (currentView) {
+        case 'fileUpload':
+            return <Navigate to="/" />;
+        case 'graph':
+            return (
+                <div style={{ position: "relative", width: "100vw", height: "100vh" }}>
+                    <ControlPanel resetAllNodes={resetAllNodes}/>
+                    <div style={{ position: "absolute", right: 40, top: "50vh", zIndex: 10 }}>
+                            <Button className="rounded-circle" variant="light" onClick={onNavigateToTimeline} ><FontAwesomeIcon icon={faChevronRight} size="2xl" /></Button>
+                    </div>
+                    <svg ref={graphRef} style={{ width: '100%', height: '100%' }} />
+                </div>);
+        case 'timeline':
+            return <Navigate to="/timeline" />;
+        default:
+            break;
+    }
 }

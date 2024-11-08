@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Form } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
 import { Navigate } from 'react-router-dom';
-import { setPackets } from '../data/dataSlice';
+import { setCurrentView, setPackets } from '../data/dataSlice';
 
 
 /**
@@ -31,6 +31,7 @@ export default function FileUpload() {
     const dispatch = useDispatch();
     const [ selectedFile, setSelectedFile ] = useState(null);
     const packets = useSelector((state) => state.data.packets);
+    const currentView = useSelector((state) => state.data.currentView);
 
 
     /**
@@ -53,9 +54,17 @@ export default function FileUpload() {
         }
     };
 
+    useEffect(() => {
+        return () => {
+            if (packets) {
+                dispatch(setCurrentView('graph'));
+            }
+        };
+    }, [packets, dispatch]);
+
 
     return (
-        packets ? <Navigate to="/graph" /> :
+        currentView === 'graph' ? <Navigate to="/graph" /> :
         <div className="d-flex align-items-center justify-content-center vh-100">
             <div>
                 <Form.Group controlId="formFile" className="mb-3" width="50%">

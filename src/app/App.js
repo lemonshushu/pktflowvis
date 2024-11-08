@@ -4,6 +4,7 @@ import {
 } from "react-router-dom";
 import FileUpload from '../features/fileUpload/FileUpload';
 import GraphView from '../features/graphView/GraphView';
+import TimelineView from '../features/timelineView/TimelineView';
 import './App.css';
 
 const router = createBrowserRouter([
@@ -14,6 +15,10 @@ const router = createBrowserRouter([
     {
         path: "/graph",
         element: <GraphView />,
+    },
+    {
+        path: "/timeline",
+        element: <TimelineView />,
     },
 ]);
 
