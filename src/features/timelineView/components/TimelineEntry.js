@@ -2,7 +2,7 @@ import * as d3 from "d3";
 import { useEffect, useRef } from 'react';
 import { Button, CloseButton, Col, Form, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from 'react-redux';
-import { removeEntry, setMetadata, setFormSelections, setTimelineData, setCurrentEntry } from '../timelineViewSlice';
+import { removeEntry, setMetadata, setFormSelections, setTimelineData, setCurrentEntry, setIsMetaNew } from '../timelineViewSlice';
 import "./TimelineEntry.css";
 
 export default function TimelineEntry({ entryIndex }) {
@@ -14,14 +14,15 @@ export default function TimelineEntry({ entryIndex }) {
     const packets = useSelector((state) => state.data.packets);
     const timelineData = useSelector((state) => state.timelineView.timelineData);
     const svgRef = useRef(null);
+    const isMetaNew = useSelector((state) => state.timelineView.isMetaNew);
 
     useEffect(() => {
         const ipA = metadata[ entryIndex ].hostA;
         const ipB = metadata[ entryIndex ].hostB;
         const portA = metadata[ entryIndex ].portA;
         const portB = metadata[ entryIndex ].portB;
-        if (ipA && ipB && portA && portB) {
-            console.log("Filtering data");
+        if (isMetaNew) {
+            dispatch(setIsMetaNew(false));
             // Filter out data from `packets`
             const data = packets.filter((packet) => {
 
@@ -56,13 +57,13 @@ export default function TimelineEntry({ entryIndex }) {
             dispatch(setTimelineData(data));
         }
 
-    }, [ metadata, packets, dispatch, entryIndex ]);
+    }, [ metadata, packets, dispatch, entryIndex, isMetaNew ]);
 
     useEffect(() => {
 
         // Calculate average propagation delay and add to `metadata`
-        if (timelineData[entryIndex].length > 0) {
-            const data = timelineData[entryIndex];
+        if (timelineData[ entryIndex ].length > 0) {
+            const data = timelineData[ entryIndex ];
             const delays = [];
             for (let i = 0; i < data.length - 1; i++) {
                 const delay = data[ i + 1 ]._source.layers.frame.frame_time_epoch - data[ i ]._source.layers.frame.frame_time_epoch;
@@ -72,7 +73,7 @@ export default function TimelineEntry({ entryIndex }) {
             const avgDelay = delays.reduce((acc, curr) => acc + curr, 0) / delays.length;
             dispatch(setMetadata({ ...metadata[ entryIndex ], propDelay: avgDelay }));
         }
-    }, [ timelineData, entryIndex, dispatch, metadata]);
+    }, [ timelineData, entryIndex, dispatch, metadata ]);
 
     useEffect(() => {
         // Only proceed if `propDelay` is available in `metadata`

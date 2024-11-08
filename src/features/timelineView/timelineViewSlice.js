@@ -6,6 +6,7 @@ export const timelineViewSlice = createSlice({
         currentEntry: null, // Index of the entry being currently operated on
         alignTime: false, // Whether to align the time of multiple timeline entries
         metadata: [],
+        isMetaNew: false,
         timelineData: [],
         formOpts: [],
         formSelections: [],
@@ -36,6 +37,10 @@ export const timelineViewSlice = createSlice({
         },
         setMetadata: (state, action) => {
             state.metadata[ state.currentEntry ] = action.payload;
+            state.isMetaNew = true;
+        },
+        setIsMetaNew: (state, action) => {
+            state.isMetaNew = action.payload;
         },
         setTimelineData: (state, action) => {
             state.timelineData[ state.currentEntry ] = action.payload;
@@ -43,6 +48,6 @@ export const timelineViewSlice = createSlice({
     },
 });
 
-export const { setCurrentEntry, addEntry, toggleAlignTime, removeEntry, setFormOpts, setFormSelections, setMetadata, setTimelineData } = timelineViewSlice.actions;
+export const { setCurrentEntry, addEntry, toggleAlignTime, removeEntry, setFormOpts, setFormSelections, setMetadata, setTimelineData, setIsMetaNew } = timelineViewSlice.actions;
 
 export default timelineViewSlice.reducer;
