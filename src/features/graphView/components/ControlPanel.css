@@ -1,0 +1,20 @@
+.toggle-container {
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center; 
+    margin-bottom: 10px; 
+}
+
+.toggle-label {
+    margin-left: 10px;
+    font-weight: bold;
+}
+
+.menubar {
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center; 
+    margin-bottom: 10px; 
+}
