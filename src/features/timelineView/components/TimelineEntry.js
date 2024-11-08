@@ -26,16 +26,17 @@ export default function TimelineEntry({ entryIndex }) {
             // Filter out data from `packets`
             const data = packets.filter((packet) => {
 
-                if (packet._source.layers.ip.ip_src === ipA && packet._source.layers.ip.ip_dst === ipB) {
-                    if (packet._source.layers.tcp && packet._source.layers.tcp.tcp_srcport === portA && packet._source.layers.tcp.tcp_dstport === portB) {
+                if (packet._source.layers.ip["ip.src"] === ipA && packet._source.layers.ip["ip.dst"] === ipB) {
+                    if (packet._source.layers.tcp && packet._source.layers.tcp["tcp.srcport"] === portA && packet._source.layers.tcp["tcp.dstport"] === portB) {
                         return true;
-                    } else if (packet._source.layers.udp && packet._source.layers.udp.udp_srcport === portA && packet._source.layers.udp.udp_dstport === portB) {
+                    } else if (packet._source.layers.udp && packet._source.layers.udp["udp.srcport"] === portA && packet._source.layers.udp["udp.dstport"] === portB) {
                         return true;
                     }
-                } else if (packet._source.layers.ip.ip_src === ipB && packet._source.layers.ip.ip_dst === ipA) {
-                    if (packet._source.layers.tcp && packet._source.layers.tcp.tcp_srcport === portB && packet._source.layers.tcp.tcp_dstport === portA) {
+                } else if (packet._source.layers.ip["ip.src"] === ipB && packet._source.layers.ip["ip.dst"] === ipA) {
+                    if (packet._source.layers.tcp && packet._source.layers.tcp["tcp.srcport"] === portB && packet._source.layers.tcp["tcp.dstport"] === portA) {
                         return true;
-                    } else if (packet._source.layers.udp && packet._source.layers.udp.udp_srcport === portB && packet._source.layers.udp.udp_dstport === portA) {
+                    }
+                    else if (packet._source.layers.udp && packet._source.layers.udp["udp.srcport"] === portB && packet._source.layers.udp["udp.dstport"] === portA) {
                         return true;
                     }
                 }
@@ -51,7 +52,7 @@ export default function TimelineEntry({ entryIndex }) {
             }
 
             // Sort data by time
-            data.sort((a, b) => a._source.layers.frame.frame_time_epoch - b._source.layers.frame.frame_time_epoch);
+            data.sort((a, b) => a._source.layers.frame["frame.time_epoch"] - b._source.layers.frame["frame.time_epoch"]);
 
             dispatch(setCurrentEntry(entryIndex));
             dispatch(setTimelineData(data));
@@ -62,11 +63,11 @@ export default function TimelineEntry({ entryIndex }) {
     useEffect(() => {
 
         // Calculate average propagation delay and add to `metadata`
-        if (timelineData[ entryIndex ].length > 0) {
+        if (timelineData[ entryIndex ].length > 0 && !metadata[ entryIndex ].propDelay) {
             const data = timelineData[ entryIndex ];
             const delays = [];
             for (let i = 0; i < data.length - 1; i++) {
-                const delay = data[ i + 1 ]._source.layers.frame.frame_time_epoch - data[ i ]._source.layers.frame.frame_time_epoch;
+                const delay = data[ i + 1 ]._source.layers.frame["frame.time_epoch"] - data[ i ]._source.layers.frame["frame.time_epoch"];
                 delays.push(delay);
             }
 
@@ -97,57 +98,42 @@ export default function TimelineEntry({ entryIndex }) {
         const width = svgRef.current.clientWidth - margin.left - margin.right;
         const height = svgRef.current.clientHeight - margin.top - margin.bottom;
 
-        const x = d3.scaleLinear()
-            .domain([ data[ 0 ]._source.layers.frame.frame_time_epoch, data[ data.length - 1 ]._source.layers.frame.frame_time_epoch ])
-            .range([ 0, width ]);
-
-        const y = d3.scaleLinear()
-            .domain([ 0, 1 ])
-            .range([ height, 0 ]);
-
-        const line = d3.line()
-            .x((d) => x(d._source.layers.frame.frame_time_epoch))
-            .y((d, i) => y(i % 2));
-
-        svg.append("path")
-            .datum(data)
-            .attr("d", line)
-            .attr("fill", "none")
+        // Draw Host A line
+        svg.append("line")
+            .attr("x1", margin.left)
+            .attr("y1", height / 5)
+            .attr("x2", width + margin.left)
+            .attr("y2", height / 5)
             .attr("stroke", "black")
             .attr("stroke-width", 2);
 
-        svg.selectAll("line")
-            .data(data)
-            .enter()
-            .append("line")
-            .attr("x1", (d) => x(d._source.layers.frame.frame_time_epoch))
-            .attr("y1", (d, i) => y(i % 2) - 5)
-            .attr("x2", (d) => x(d._source.layers.frame.frame_time_epoch))
-            .attr("y2", (d, i) => y(i % 2) + 5)
+        // Draw Host B line
+        svg.append("line")
+            .attr("x1", margin.left)
+            .attr("y1", height * 4 / 5)
+            .attr("x2", width + margin.left)
+            .attr("y2", height * 4 / 5)
             .attr("stroke", "black")
             .attr("stroke-width", 2);
 
-        svg.selectAll("line")
-            .data(data)
-            .enter()
-            .append("line")
-            .attr("x1", (d) => x(d._source.layers.frame.frame_time_epoch))
-            .attr("y1", (d, i) => y(i % 2) - 5)
-            .attr("x2", (d) => x(d._source.layers.frame.frame_time_epoch) + 5)
-            .attr("y2", (d, i) => y(i % 2))
-            .attr("stroke", "black")
-            .attr("stroke-width", 2);
+        // Label Host A
+        svg.append("text")
+            .attr("x", margin.left)
+            .attr("y", height / 5 - 5)
+            .text(metadata[ entryIndex ].hostA + ":" + metadata[ entryIndex ].portA)
+            .attr("font-family", "sans-serif")
+            .attr("font-size", "12px")
+            .attr("fill", "black");
 
-        svg.selectAll("line")
-            .data(data)
-            .enter()
-            .append("line")
-            .attr("x1", (d) => x(d._source.layers.frame.frame_time_epoch))
-            .attr("y1", (d, i) => y(i % 2) + 5)
-            .attr("x2", (d) => x(d._source.layers.frame.frame_time_epoch) + 5)
-            .attr("y2", (d, i) => y(i % 2))
-            .attr("stroke", "black")
-            .attr("stroke-width", 2);
+        // Label Host B
+        svg.append("text")
+            .attr("x", margin.left)
+            .attr("y", height * 4 / 5 - 5)
+            .text(metadata[ entryIndex ].hostB + ":" + metadata[ entryIndex ].portB)
+            .attr("font-family", "sans-serif")
+            .attr("font-size", "12px")
+            .attr("fill", "black");
+
 
 
 
