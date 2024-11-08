@@ -26,17 +26,17 @@ export default function TimelineEntry({ entryIndex }) {
             // Filter out data from `packets`
             const data = packets.filter((packet) => {
 
-                if (packet._source.layers.ip["ip.src"] === ipA && packet._source.layers.ip["ip.dst"] === ipB) {
-                    if (packet._source.layers.tcp && packet._source.layers.tcp["tcp.srcport"] === portA && packet._source.layers.tcp["tcp.dstport"] === portB) {
+                if (packet._source.layers.ip[ "ip.src" ] === ipA && packet._source.layers.ip[ "ip.dst" ] === ipB) {
+                    if (packet._source.layers.tcp && packet._source.layers.tcp[ "tcp.srcport" ] === portA && packet._source.layers.tcp[ "tcp.dstport" ] === portB) {
                         return true;
-                    } else if (packet._source.layers.udp && packet._source.layers.udp["udp.srcport"] === portA && packet._source.layers.udp["udp.dstport"] === portB) {
-                        return true;
-                    }
-                } else if (packet._source.layers.ip["ip.src"] === ipB && packet._source.layers.ip["ip.dst"] === ipA) {
-                    if (packet._source.layers.tcp && packet._source.layers.tcp["tcp.srcport"] === portB && packet._source.layers.tcp["tcp.dstport"] === portA) {
+                    } else if (packet._source.layers.udp && packet._source.layers.udp[ "udp.srcport" ] === portA && packet._source.layers.udp[ "udp.dstport" ] === portB) {
                         return true;
                     }
-                    else if (packet._source.layers.udp && packet._source.layers.udp["udp.srcport"] === portB && packet._source.layers.udp["udp.dstport"] === portA) {
+                } else if (packet._source.layers.ip[ "ip.src" ] === ipB && packet._source.layers.ip[ "ip.dst" ] === ipA) {
+                    if (packet._source.layers.tcp && packet._source.layers.tcp[ "tcp.srcport" ] === portB && packet._source.layers.tcp[ "tcp.dstport" ] === portA) {
+                        return true;
+                    }
+                    else if (packet._source.layers.udp && packet._source.layers.udp[ "udp.srcport" ] === portB && packet._source.layers.udp[ "udp.dstport" ] === portA) {
                         return true;
                     }
                 }
@@ -52,7 +52,7 @@ export default function TimelineEntry({ entryIndex }) {
             }
 
             // Sort data by time
-            data.sort((a, b) => a._source.layers.frame["frame.time_epoch"] - b._source.layers.frame["frame.time_epoch"]);
+            data.sort((a, b) => a._source.layers.frame[ "frame.time_epoch" ] - b._source.layers.frame[ "frame.time_epoch" ]);
 
             dispatch(setCurrentEntry(entryIndex));
             dispatch(setTimelineData(data));
@@ -67,7 +67,7 @@ export default function TimelineEntry({ entryIndex }) {
             const data = timelineData[ entryIndex ];
             const delays = [];
             for (let i = 0; i < data.length - 1; i++) {
-                const delay = data[ i + 1 ]._source.layers.frame["frame.time_epoch"] - data[ i ]._source.layers.frame["frame.time_epoch"];
+                const delay = data[ i + 1 ]._source.layers.frame[ "frame.time_epoch" ] - data[ i ]._source.layers.frame[ "frame.time_epoch" ];
                 delays.push(delay);
             }
 
@@ -142,7 +142,7 @@ export default function TimelineEntry({ entryIndex }) {
 
     const onHostAChange = (e) => {
         dispatch(setCurrentEntry(entryIndex));
-        dispatch(setFormSelections({ ...formSelection, hostA: e.target.value, hostAIndex: formOpts.findIndex((opt) => opt.ip_addr === e.target.value) }));
+        dispatch(setFormSelections({ ...formSelection, hostA: e.target.value }));
 
     };
 
@@ -155,7 +155,7 @@ export default function TimelineEntry({ entryIndex }) {
     const onHostBChange = (e) => {
         // dispatch(setFormSelections({ index: entryIndex, selection: { ...formSelection, hostB: e.target.value, hostBIndex: formOpts.findIndex((opt) => opt.ip_addr === e.target.value) } }));
         dispatch(setCurrentEntry(entryIndex));
-        dispatch(setFormSelections({ ...formSelection, hostB: e.target.value, hostBIndex: formOpts.findIndex((opt) => opt.ip_addr === e.target.value) }));
+        dispatch(setFormSelections({ ...formSelection, hostB: e.target.value }));
     };
 
     const onPortBChange = (e) => {
@@ -217,10 +217,10 @@ export default function TimelineEntry({ entryIndex }) {
                     <Col xs={3} className="d-flex align-items-center justify-content-center">
                         <Form.Label column={false}>Port: </Form.Label>
                         <Form.Select className="ms-3" style={{ width: 150 }} onChange={onPortAChange} value={formSelection.portA}>
-                            {formOpts[ formSelection.hostAIndex ] ? formOpts[ formSelection.hostAIndex ].ports.map((port, index) => {
+                            {formOpts.length > 0 ? formOpts[ formOpts.findIndex((opt) => opt.ip_addr === formSelection.hostA) ].ports.map((port, index) => {
                                 return (<option key={index}>{port}</option>);
-                            }) : null
                             }
+                            ) : null}
                         </Form.Select>
                     </Col>
                     <Col xs={2} className="d-flex align-items-center justify-content-center">
@@ -241,10 +241,10 @@ export default function TimelineEntry({ entryIndex }) {
                     <Col xs={3} className="d-flex align-items-center justify-content-center">
                         <Form.Label column={false}>Port: </Form.Label>
                         <Form.Select className="ms-3" style={{ width: 150 }} onChange={onPortBChange} value={formSelection.portB}>
-                            {formOpts[ formSelection.hostBIndex ] ? formOpts[ formSelection.hostBIndex ].ports.map((port, index) => {
+                            {formOpts.length > 0 ? formOpts[ formOpts.findIndex((opt) => opt.ip_addr === formSelection.hostB) ].ports.map((port, index) => {
                                 return (<option key={index}>{port}</option>);
-                            }) : null
                             }
+                            ) : null}
                         </Form.Select>
                     </Col>
                     <Col xs={2} className="d-flex align-items-center justify-content-center">
