@@ -68,7 +68,7 @@ export default function GraphView() {
     const initPortData = () => {
         // Initialize port data with nodes and links
         const data = { nodes: [], links: [] };
-        const timelineViewFormOpts = [];
+        const timelineViewFormOpts = [{ip_addr: "", ports: [""]}];
 
         packets.forEach((packet) => {
             const src_ip = packet._source.layers.ip[ 'ip.src_host' ];
@@ -96,7 +96,7 @@ export default function GraphView() {
                 data.nodes.push(src_node);
 
                 if (!timelineViewFormOpts.find(port => port.ip_addr === src_ip)) {
-                    timelineViewFormOpts.push({ ip_addr: src_ip, ports: [ src_port ] });
+                    timelineViewFormOpts.push({ ip_addr: src_ip, ports: [ "", src_port ] });
                 } else {
                     timelineViewFormOpts.find(port => port.ip_addr === src_ip).ports.push(src_port);
                 }
@@ -120,7 +120,7 @@ export default function GraphView() {
                 data.nodes.push(dst_node);
 
                 if (!timelineViewFormOpts.find(port => port.ip_addr === dst_ip)) {
-                    timelineViewFormOpts.push({ ip_addr: dst_ip, ports: [ dst_port ] });
+                    timelineViewFormOpts.push({ ip_addr: dst_ip, ports: [ "", dst_port ] });
                 } else {
                     timelineViewFormOpts.find(port => port.ip_addr === dst_ip).ports.push(dst_port);
                 }
