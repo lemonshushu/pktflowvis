@@ -18,7 +18,7 @@ export const timelineViewSlice = createSlice({
         addEntry: (state, action) => {
             let {metadata, formSelections} = action.payload;
             if (!metadata) metadata = { hostA: "", portA: "", hostB: "", portB: "" };
-            if (!formSelections) formSelections = { hostA: "", hostAIndex: null, portA: "", hostB: "", hostBIndex: null, portB: "", radioASelected: true };
+            if (!formSelections) formSelections = { hostA: "", portA: "", hostB: "", portB: "", radioASelected: true };
             state.metadata.push(metadata);
             state.timelineData.push([]);
             state.formSelections.push(formSelections);
