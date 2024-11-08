@@ -22,15 +22,7 @@ export default function GraphView() {
     const nodesRef = useRef([]);
     const svgRef = useRef(null); // SVG 요소에 대한 참조를 저장할 ref
     const zoomRef = useRef(null); // zoom behavior에 대한 참조를 저장할 ref
-    // const [isSimulationStable, setIsSimulationStable] = useState(false);
     const isSimulationStableRef = useRef(isSimulationStable); 
-
-
-    // const [selectedIP, setSelectedIP] = useState('');
-    // const [selectedPort, setSelectedPort] = useState('');
-    // const [availablePorts, setAvailablePorts] = useState([]);
-    // const [nickname, setNickname] = useState('');
-
 
     function updateIsSimulationStable(value) {
         dispatch(setIsSimulationStable(value));
@@ -331,7 +323,6 @@ export default function GraphView() {
                 .selectAll("text")
                 .data(nodes)
                 .join("text")
-                // .text(d => d.nick_name ? d.nick_name : (mode === 'host' ? d.ip_addr : `${d.ip_addr}:${d.port}`))
                 .text(d => getNicknameLabel(d, mode))
                 .attr("font-size", "10px")
                 .attr("fill", "#555")
@@ -406,13 +397,6 @@ export default function GraphView() {
             });
 
             simulation.alpha(1).restart();
-
-            // function resetNodePosition(event, d) {
-            //     event.stopPropagation(); // Prevent zoom on double-click
-            //     d.fx = d.originalX;
-            //     d.fy = d.originalY;
-            //     simulation.alpha(1).restart();
-            // }
 
             function zoomed(event) {
                 container.attr("transform", event.transform);

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setMode } from '../graphViewSlice';
-import { setNicknameMapping, resetNicknameMapping, setIsNicknameChangeOpen, setIsSimulationStable, setIsShowProtocolsOpen, setShowL4Protocol, setShowL7Protocol } from './controlPanelSlice';
+import { setNicknameMapping, resetNicknameMapping, setIsNicknameChangeOpen, setIsShowProtocolsOpen, setShowL4Protocol, setShowL7Protocol } from './controlPanelSlice';
 import Toggle from 'react-toggle';
 import "react-toggle/style.css";
 import { Button, Form} from 'react-bootstrap';
@@ -10,7 +10,6 @@ export default function ControlPanel(props) {
     const packets = useSelector((state) => state.data.packets);
     const hostData = useSelector((state) => state.graphView.hostGraphData);
     const portData = useSelector((state) => state.graphView.portGraphData);
-    // const nicknameMapping = useSelector((state) => state.controlPanel.nicknameMapping);
     const mode = useSelector((state) => state.graphView.mode);
 
     const isSimulationStable = useSelector((state) => state.controlPanel.isSimulationStable);
