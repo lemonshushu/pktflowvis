@@ -9,7 +9,8 @@ import Toggle from 'react-toggle';
 import "react-toggle/style.css";
 import './GraphView.css';
 import { setHostGraphData, setMode, setPortGraphData } from './graphViewSlice';
-import { setFormOpts } from '../timelineView/timelineViewSlice';
+import { addEntry, setFormOpts } from '../timelineView/timelineViewSlice';
+import { setCurrentView } from '../data/dataSlice';
 
 export default function GraphView() {
     const packets = useSelector((state) => state.data.packets);
@@ -17,13 +18,14 @@ export default function GraphView() {
     const hostData = useSelector((state) => state.graphView.hostGraphData);
     const portData = useSelector((state) => state.graphView.portGraphData);
     const mode = useSelector((state) => state.graphView.mode);
+    const currentView = useSelector((state) => state.data.currentView);
 
     const simulationRef = useRef(null);
     const nodesRef = useRef([]);
     const nodeRef = useRef([]);
     const svgRef = useRef(null); // SVG 요소에 대한 참조를 저장할 ref
     const zoomRef = useRef(null); // zoom behavior에 대한 참조를 저장할 ref
-    const [isSimulationStable, setIsSimulationStable] = useState(false);
+    const [ isSimulationStable, setIsSimulationStable ] = useState(false);
     const isSimulationStableRef = useRef(isSimulationStable);
 
     function updateIsSimulationStable(value) {
@@ -68,7 +70,7 @@ export default function GraphView() {
     const initPortData = () => {
         // Initialize port data with nodes and links
         const data = { nodes: [], links: [] };
-        const timelineViewFormOpts = [{ip_addr: "", ports: [""]}];
+        const timelineViewFormOpts = [ { ip_addr: "", ports: [ "" ] } ];
 
         packets.forEach((packet) => {
             const src_ip = packet._source.layers.ip[ 'ip.src_host' ];
@@ -77,10 +79,10 @@ export default function GraphView() {
             const dst_port = packet._source.layers.tcp ? packet._source.layers.tcp[ 'tcp.dstport' ] : packet._source.layers.udp[ 'udp.dstport' ];
             const frame_size = Number(packet._source.layers.frame[ 'frame.len' ]);
             const l4_proto = packet._source.layers.tcp ? 'TCP' : 'UDP';
-            const layers = Object.keys(packet._source.layers)
-            const l7_proto = layers[ 4 ] === "tcp.segments" ? layers[ 5 ].toUpperCase() 
-                            : (layers[ 4 ] === undefined ? undefined : layers[ 4 ].toUpperCase());
-            
+            const layers = Object.keys(packet._source.layers);
+            const l7_proto = layers[ 4 ] === "tcp.segments" ? layers[ 5 ].toUpperCase()
+                : (layers[ 4 ] === undefined ? undefined : layers[ 4 ].toUpperCase());
+
             const src_id = `${src_ip}:${src_port}`;
             const dst_id = `${dst_ip}:${dst_port}`;
 
@@ -111,7 +113,7 @@ export default function GraphView() {
                     } else if (l7_proto !== undefined) {
                         src_node.l7_proto = "Multiple";
                     }
-                } 
+                }
             }
 
             // Add destination node
@@ -168,6 +170,11 @@ export default function GraphView() {
 
         return data;
     };
+
+
+    useEffect(() => {
+        setCurrentView('graph');
+    }, [ dispatch ]);
 
     useEffect(() => {
         if (packets && !hostData) {
@@ -301,7 +308,22 @@ export default function GraphView() {
                 .data(links)
                 .join("line")
                 .attr("stroke-width", d => Math.sqrt(d.value))
-                .attr("marker-end", "url(#arrowhead)");
+                .attr("marker-end", "url(#arrowhead)")
+                // Highlight the link with black stroke on hover && make it thicker
+                .on("mouseover", function (event) {
+                    d3.select(this).attr("stroke", "#000").attr("stroke-width", 2);
+                })
+                .on("mouseout", function (event) {
+                    d3.select(this).attr("stroke", "#999").attr("stroke-width", 1);
+                })
+                .on("click", (event) => {
+                    const hostA = event.srcElement.__data__.src_ip;
+                    const portA = event.srcElement.__data__.src_port;
+                    const hostB = event.srcElement.__data__.dst_ip;
+                    const portB = event.srcElement.__data__.dst_port;
+                    dispatch(addEntry({ metadata: { hostA, portA, hostB, portB }, formSelections: { hostA, portA, hostB, portB, radioASelected: true  } }));
+                    dispatch(setCurrentView('timeline'));
+                });
 
             // Add nodes
             const node = container.append("g")
@@ -313,8 +335,9 @@ export default function GraphView() {
                 .attr("fill", d => colorScale(d.ip_addr))
                 .on("dblclick", resetNodePosition)
                 .on("dblclick.zoom", null) // Prevent zoom on double-click on nodes
-                .on("click", (event) => {
-                    event.stopPropagation(); // Prevent click from propagating to zoom
+                .on("click", (event, d) => {
+                    dispatch(addEntry({ metadata: null, formSelections: { hostA: d.ip_addr, portA: d.port, hostB: "", portB: "", radioASelected: true  } })); // Add new entry in TimelineView
+                    dispatch(setCurrentView('timeline'));
                 });
 
             nodeRef.current = node;
@@ -334,14 +357,20 @@ export default function GraphView() {
                 tooltip
                     .style("opacity", 1)
                     .html(getTooltipContent(d, mode));
+
+                    // Highlight the node with outline on hover
+                    d3.select(event.target).attr("stroke", "#000");
+
             })
                 .on("mousemove", event => {
                     tooltip
                         .style("left", (event.pageX + 10) + "px")
                         .style("top", (event.pageY - 20) + "px");
                 })
-                .on("mouseout", () => {
+                .on("mouseout", (event) => {
                     tooltip.style("opacity", 0);
+                    // Remove the outline on mouseout
+                    d3.select(event.target).attr("stroke", null);
                 });
 
             // Add labels
@@ -358,7 +387,7 @@ export default function GraphView() {
                     event.stopPropagation();
                 });
 
-            
+
             simulation.stop();
 
             // 필요한 만큼 tick 실행
@@ -373,36 +402,36 @@ export default function GraphView() {
             });
             nodesRef.current = nodes;
             node.call(drag(simulation));
-            
+
             simulation.on("tick", () => {
                 link
                     .attr("x1", d => {
-                    const sourceRadius = sizeScale(d.source.traffic_volume);
-                    const dx = d.target.x - d.source.x;
-                    const dy = d.target.y - d.source.y;
-                    const angle = Math.atan2(dy, dx);
-                    return d.source.x + Math.cos(angle) * sourceRadius;
+                        const sourceRadius = sizeScale(d.source.traffic_volume);
+                        const dx = d.target.x - d.source.x;
+                        const dy = d.target.y - d.source.y;
+                        const angle = Math.atan2(dy, dx);
+                        return d.source.x + Math.cos(angle) * sourceRadius;
                     })
                     .attr("y1", d => {
-                    const sourceRadius = sizeScale(d.source.traffic_volume);
-                    const dx = d.target.x - d.source.x;
-                    const dy = d.target.y - d.source.y;
-                    const angle = Math.atan2(dy, dx);
-                    return d.source.y + Math.sin(angle) * sourceRadius;
+                        const sourceRadius = sizeScale(d.source.traffic_volume);
+                        const dx = d.target.x - d.source.x;
+                        const dy = d.target.y - d.source.y;
+                        const angle = Math.atan2(dy, dx);
+                        return d.source.y + Math.sin(angle) * sourceRadius;
                     })
                     .attr("x2", d => {
-                    const targetRadius = sizeScale(d.target.traffic_volume);
-                    const dx = d.target.x - d.source.x;
-                    const dy = d.target.y - d.source.y;
-                    const angle = Math.atan2(dy, dx);
-                    return d.target.x - Math.cos(angle) * targetRadius;
+                        const targetRadius = sizeScale(d.target.traffic_volume);
+                        const dx = d.target.x - d.source.x;
+                        const dy = d.target.y - d.source.y;
+                        const angle = Math.atan2(dy, dx);
+                        return d.target.x - Math.cos(angle) * targetRadius;
                     })
                     .attr("y2", d => {
-                    const targetRadius = sizeScale(d.target.traffic_volume);
-                    const dx = d.target.x - d.source.x;
-                    const dy = d.target.y - d.source.y;
-                    const angle = Math.atan2(dy, dx);
-                    return d.target.y - Math.sin(angle) * targetRadius;
+                        const targetRadius = sizeScale(d.target.traffic_volume);
+                        const dx = d.target.x - d.source.x;
+                        const dy = d.target.y - d.source.y;
+                        const angle = Math.atan2(dy, dx);
+                        return d.target.y - Math.sin(angle) * targetRadius;
                     });
 
                 node
@@ -461,7 +490,7 @@ export default function GraphView() {
             createGraph(nodes, links, 'port');
         }
 
-    }, [ hostData, portData, mode]);
+    }, [ hostData, portData, mode ]);
 
     function resetAllNodes() {
         if (nodesRef.current && simulationRef.current && simulationRef.current.alpha() < 0.05) {
@@ -484,28 +513,35 @@ export default function GraphView() {
         }
     }
 
-    return (
-        packets ? (
-            <div style={{ position: "relative", width: "100vw", height: "100vh" }}>
-                <div className="reset-button-container">
-                    <Button onClick={resetAllNodes} disabled={!isSimulationStable}>모든 노드 위치 리셋</Button>
-                </div>
-                <div className="toggle-button-container">
-                    <Toggle
-                        id='split-toggle'
-                        defaultChecked={mode === 'port'}
-                        onChange={(e) => dispatch(setMode(e.target.checked ? 'port' : 'host'))} />
-                    <label htmlFor='split-toggle' style={{ marginLeft: '8px' }}>포트별로 호스트 분할</label>
-                </div>
-                <div style={{ position: "absolute", right: 40, top: "50vh", zIndex: 10 }}>
-                    <Link to="/timeline">
-                        <Button className="rounded-circle" variant="light"><FontAwesomeIcon icon={faChevronRight} size="2xl" /></Button>
-                    </Link>
-                </div>
-                <svg ref={graphRef} style={{ width: '100%', height: '100%' }} />
-            </div>
-        ) : (
-            <Navigate to="/" />
-        )
-    );
+    const onNavigateToTimeline = () => {
+        dispatch(setCurrentView('timeline'));
+    }
+
+
+    switch (currentView) {
+        case 'fileUpload':
+            return <Navigate to="/" />;
+        case 'graph':
+            return (
+                <div style={{ position: "relative", width: "100vw", height: "100vh" }}>
+                    <div className="reset-button-container">
+                        <Button onClick={resetAllNodes} disabled={!isSimulationStable}>모든 노드 위치 리셋</Button>
+                    </div>
+                    <div className="toggle-button-container">
+                        <Toggle
+                            id='split-toggle'
+                            defaultChecked={mode === 'port'}
+                            onChange={(e) => dispatch(setMode(e.target.checked ? 'port' : 'host'))} />
+                        <label htmlFor='split-toggle' style={{ marginLeft: '8px' }}>포트별로 호스트 분할</label>
+                    </div>
+                    <div style={{ position: "absolute", right: 40, top: "50vh", zIndex: 10 }}>
+                            <Button className="rounded-circle" variant="light" onClick={onNavigateToTimeline} ><FontAwesomeIcon icon={faChevronRight} size="2xl" /></Button>
+                    </div>
+                    <svg ref={graphRef} style={{ width: '100%', height: '100%' }} />
+                </div>);
+        case 'timeline':
+            return <Navigate to="/timeline" />;
+        default:
+            break;
+    }
 }

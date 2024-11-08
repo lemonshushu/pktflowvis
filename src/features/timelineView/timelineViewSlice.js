@@ -16,9 +16,12 @@ export const timelineViewSlice = createSlice({
             state.currentEntry = action.payload;
         },
         addEntry: (state, action) => {
-            state.metadata.push({ hostA: "", portA: "", hostB: "", portB: "" });
+            let {metadata, formSelections} = action.payload;
+            if (!metadata) metadata = { hostA: "", portA: "", hostB: "", portB: "" };
+            if (!formSelections) formSelections = { hostA: "", hostAIndex: null, portA: "", hostB: "", hostBIndex: null, portB: "", radioASelected: true };
+            state.metadata.push(metadata);
             state.timelineData.push([]);
-            state.formSelections.push({ hostA: "", hostAIndex: null, portA: "", hostB: "", hostBIndex: null, portB: "", radioASelected: true });
+            state.formSelections.push(formSelections);
         },
         toggleAlignTime: (state) => {
             state.alignTime = !state.alignTime;
