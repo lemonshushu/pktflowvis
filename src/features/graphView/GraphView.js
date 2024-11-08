@@ -11,25 +11,28 @@ import './GraphView.css';
 import { setHostGraphData, setMode, setPortGraphData } from './graphViewSlice';
 import { addEntry, setFormOpts } from '../timelineView/timelineViewSlice';
 import { setCurrentView } from '../data/dataSlice';
+import ControlPanel from './components/ControlPanel';
+import { setIsSimulationStable } from './components/controlPanelSlice';
+
 
 export default function GraphView() {
     const packets = useSelector((state) => state.data.packets);
     const graphRef = useRef(null);
     const hostData = useSelector((state) => state.graphView.hostGraphData);
     const portData = useSelector((state) => state.graphView.portGraphData);
+    const nicknameMapping = useSelector((state) => state.controlPanel.nicknameMapping);
     const mode = useSelector((state) => state.graphView.mode);
     const currentView = useSelector((state) => state.data.currentView);
+    const isSimulationStable = useSelector((state) => state.controlPanel.isSimulationStable);
 
     const simulationRef = useRef(null);
     const nodesRef = useRef([]);
-    const nodeRef = useRef([]);
     const svgRef = useRef(null); // SVG 요소에 대한 참조를 저장할 ref
     const zoomRef = useRef(null); // zoom behavior에 대한 참조를 저장할 ref
-    const [ isSimulationStable, setIsSimulationStable ] = useState(false);
-    const isSimulationStableRef = useRef(isSimulationStable);
+    const isSimulationStableRef = useRef(isSimulationStable); 
 
     function updateIsSimulationStable(value) {
-        setIsSimulationStable(value);
+        dispatch(setIsSimulationStable(value));
         isSimulationStableRef.current = value;
     }
 
@@ -80,9 +83,9 @@ export default function GraphView() {
             const frame_size = Number(packet._source.layers.frame[ 'frame.len' ]);
             const l4_proto = packet._source.layers.tcp ? 'TCP' : 'UDP';
             const layers = Object.keys(packet._source.layers);
-            const l7_proto = layers[ 4 ] === "tcp.segments" ? layers[ 5 ].toUpperCase()
-                : (layers[ 4 ] === undefined ? undefined : layers[ 4 ].toUpperCase());
-
+            const l7_proto = layers[ 4 ] === "tcp.segments" ? layers[ 5 ].toUpperCase() 
+                            : (layers[ 4 ] === undefined ? undefined : layers[ 4 ].toUpperCase());
+            
             const src_id = `${src_ip}:${src_port}`;
             const dst_id = `${dst_ip}:${dst_port}`;
 
@@ -333,14 +336,12 @@ export default function GraphView() {
                 .join("circle")
                 .attr("r", d => sizeScale(d.traffic_volume))
                 .attr("fill", d => colorScale(d.ip_addr))
-                .on("dblclick", resetNodePosition)
+                // .on("dblclick", resetNodePosition)
                 .on("dblclick.zoom", null) // Prevent zoom on double-click on nodes
                 .on("click", (event, d) => {
                     dispatch(addEntry({ metadata: null, formSelections: { hostA: d.ip_addr, portA: d.port, hostB: "", portB: "", radioASelected: true  } })); // Add new entry in TimelineView
                     dispatch(setCurrentView('timeline'));
                 });
-
-            nodeRef.current = node;
 
             // Add tooltips
             const tooltip = d3.select("body").append("div")
@@ -378,7 +379,7 @@ export default function GraphView() {
                 .selectAll("text")
                 .data(nodes)
                 .join("text")
-                .text(d => d.id)
+                .text(d => getNicknameLabel(d, mode))
                 .attr("font-size", "10px")
                 .attr("fill", "#555")
                 .attr("dy", "-1em")
@@ -390,12 +391,10 @@ export default function GraphView() {
 
             simulation.stop();
 
-            // 필요한 만큼 tick 실행
             for (let i = 0; i < 300; ++i) {
                 simulation.tick();
             }
 
-            // 노드들의 초기 위치 저장
             nodes.forEach(d => {
                 d.originalX = d.x;
                 d.originalY = d.y;
@@ -448,19 +447,12 @@ export default function GraphView() {
                     }
                 } else {
                     if (isSimulationStableRef.current) {
-                        updateIsSimulationStable(false);
+                        updateIsSimulationStable(true);
                     }
                 }
             });
 
             simulation.alpha(1).restart();
-
-            function resetNodePosition(event, d) {
-                event.stopPropagation(); // Prevent zoom on double-click
-                d.fx = d.originalX;
-                d.fy = d.originalY;
-                simulation.alpha(1).restart();
-            }
 
             function zoomed(event) {
                 container.attr("transform", event.transform);
@@ -470,14 +462,6 @@ export default function GraphView() {
                 simulation.stop();
                 tooltip.remove();
             };
-        };
-
-        const getTooltipContent = (d, mode) => {
-            if (mode === 'host') {
-                return `IP: ${d.ip_addr}<br>Traffic Volume: ${d.traffic_volume}`;
-            } else {
-                return `IP: ${d.ip_addr}<br>Port: ${d.port}<br>Traffic Volume: ${d.traffic_volume}<br>L4 Protocol: ${d.l4_proto}<br>L7 Protocol: ${d.l7_proto}`;
-            }
         };
 
         if (mode === 'host') {
@@ -492,6 +476,47 @@ export default function GraphView() {
 
     }, [ hostData, portData, mode ]);
 
+    useEffect(() => {
+        if (!hostData || !portData) return;
+    
+        d3.select(graphRef.current).selectAll("text")
+            .text(d => getNicknameLabel(d, mode));
+    
+        const tooltip = d3.select("body").select(".tooltip");
+        d3.select(graphRef.current).selectAll("circle")
+            .on("mouseover", (event, d) => {
+                tooltip
+                    .style("opacity", 1)
+                    .html(getTooltipContent(d, mode));
+            })
+            .on("mousemove", event => {
+                tooltip
+                    .style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 20) + "px");
+            })
+            .on("mouseout", () => {
+                tooltip.style("opacity", 0);
+            });
+    }, [nicknameMapping, mode]);
+    
+    const getNicknameLabel = (node, mode) => {
+        if (mode === 'host') {
+            return nicknameMapping[node.ip_addr] || node.ip_addr;
+        } else {
+            const key = `${node.ip_addr}:${node.port}`;
+            return nicknameMapping[key] || `${node.ip_addr}:${node.port}`;
+        }
+    };       
+    
+    const getTooltipContent = (node, mode) => {
+        if (mode === 'host') {
+            return `${nicknameMapping[node.ip_addr] ? `${nicknameMapping[node.ip_addr]}<br>` : ''}IP: ${node.ip_addr}<br>Traffic Volume: ${node.traffic_volume}`;
+        } else {
+            const key = `${node.ip_addr}:${node.port}`;
+            return `${nicknameMapping[key] ? `${nicknameMapping[key]}<br>` : ''}IP: ${node.ip_addr}<br>Port: ${node.port}<br>Traffic Volume: ${node.traffic_volume}<br>L4 Protocol: ${node.l4_proto}<br>L7 Protocol: ${node.l7_proto}`;
+        }
+    };
+
     function resetAllNodes() {
         if (nodesRef.current && simulationRef.current && simulationRef.current.alpha() < 0.05) {
             nodesRef.current.forEach(d => {
@@ -503,6 +528,7 @@ export default function GraphView() {
                 d.fy = null;
             });
             simulationRef.current.alpha(1).restart();
+            updateIsSimulationStable(false);
         }
 
         if (svgRef.current && zoomRef.current) {
@@ -524,16 +550,7 @@ export default function GraphView() {
         case 'graph':
             return (
                 <div style={{ position: "relative", width: "100vw", height: "100vh" }}>
-                    <div className="reset-button-container">
-                        <Button onClick={resetAllNodes} disabled={!isSimulationStable}>모든 노드 위치 리셋</Button>
-                    </div>
-                    <div className="toggle-button-container">
-                        <Toggle
-                            id='split-toggle'
-                            defaultChecked={mode === 'port'}
-                            onChange={(e) => dispatch(setMode(e.target.checked ? 'port' : 'host'))} />
-                        <label htmlFor='split-toggle' style={{ marginLeft: '8px' }}>포트별로 호스트 분할</label>
-                    </div>
+                    <ControlPanel resetAllNodes={resetAllNodes}/>
                     <div style={{ position: "absolute", right: 40, top: "50vh", zIndex: 10 }}>
                             <Button className="rounded-circle" variant="light" onClick={onNavigateToTimeline} ><FontAwesomeIcon icon={faChevronRight} size="2xl" /></Button>
                     </div>

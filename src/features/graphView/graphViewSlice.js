@@ -20,6 +20,6 @@ export const graphViewSlice = createSlice({
     },
 });
 
-export const { setHostGraphData, setPortGraphData, setMode } = graphViewSlice.actions;
+export const { setHostGraphData, setPortGraphData, setNicknameMapping, resetNicknameMapping, setMode } = graphViewSlice.actions;
 
 export default graphViewSlice.reducer;
