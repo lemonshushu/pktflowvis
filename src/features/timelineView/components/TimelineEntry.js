@@ -1,4 +1,4 @@
-import { faFloppyDisk, faPencil } from '@fortawesome/free-solid-svg-icons';
+import { faFloppyDisk, faPencil, faX } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import * as d3 from "d3";
 import { useEffect, useRef, useState } from 'react';
@@ -227,9 +227,8 @@ export default function TimelineEntry({ entryIndex }) {
                 {titleEditMode ?
                     <div className="mb-2 align-self-center d-flex justify-content-center">
                         <Form.Control placeholder="Entry title" className="entry-title" value={titleText} onChange={(e) => setTitleText(e.target.value)} />
-                        <OverlayTrigger placement="top" overlay={<Tooltip>Save</Tooltip>}>
-                            <FontAwesomeIcon style={{cursor:'pointer'}} icon={faFloppyDisk} className="ms-2 align-self-center" onClick={onTitleSave} />
-                        </OverlayTrigger>
+                        <FontAwesomeIcon style={{cursor:'pointer'}} icon={faFloppyDisk} className="ms-2 align-self-center" onClick={onTitleSave} />
+                        <FontAwesomeIcon style={{cursor:'pointer'}} icon={faX} className="ms-2 align-self-center" onClick={() => setTitleEditMode(false)} />
                     </div>
                     :
                     <div>
