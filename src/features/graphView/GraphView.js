@@ -1,18 +1,17 @@
 import { faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import * as d3 from 'd3';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Button } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
-import { Link, Navigate } from 'react-router-dom';
-import Toggle from 'react-toggle';
+import { Navigate } from 'react-router-dom';
 import "react-toggle/style.css";
-import './GraphView.css';
-import { setHostGraphData, setMode, setPortGraphData } from './graphViewSlice';
-import { addEntry, setFormOpts } from '../timelineView/timelineViewSlice';
 import { setCurrentView } from '../data/dataSlice';
+import { addEntry, setFormOpts } from '../timelineView/timelineViewSlice';
 import ControlPanel from './components/ControlPanel';
 import { setIsSimulationStable } from './components/controlPanelSlice';
+import './GraphView.css';
+import { setHostGraphData, setPortGraphData } from './graphViewSlice';
 
 
 export default function GraphView() {
@@ -29,7 +28,7 @@ export default function GraphView() {
     const nodesRef = useRef([]);
     const svgRef = useRef(null); // SVG 요소에 대한 참조를 저장할 ref
     const zoomRef = useRef(null); // zoom behavior에 대한 참조를 저장할 ref
-    const isSimulationStableRef = useRef(isSimulationStable); 
+    const isSimulationStableRef = useRef(isSimulationStable);
 
     function updateIsSimulationStable(value) {
         dispatch(setIsSimulationStable(value));
@@ -83,9 +82,9 @@ export default function GraphView() {
             const frame_size = Number(packet._source.layers.frame[ 'frame.len' ]);
             const l4_proto = packet._source.layers.tcp ? 'TCP' : 'UDP';
             const layers = Object.keys(packet._source.layers);
-            const l7_proto = layers[ 4 ] === "tcp.segments" ? layers[ 5 ].toUpperCase() 
-                            : (layers[ 4 ] === undefined ? undefined : layers[ 4 ].toUpperCase());
-            
+            const l7_proto = layers[ 4 ] === "tcp.segments" ? layers[ 5 ].toUpperCase()
+                : (layers[ 4 ] === undefined ? undefined : layers[ 4 ].toUpperCase());
+
             const src_id = `${src_ip}:${src_port}`;
             const dst_id = `${dst_ip}:${dst_port}`;
 
@@ -324,7 +323,7 @@ export default function GraphView() {
                     const portA = event.srcElement.__data__.src_port;
                     const hostB = event.srcElement.__data__.dst_ip;
                     const portB = event.srcElement.__data__.dst_port;
-                    dispatch(addEntry({ metadata: { hostA, portA, hostB, portB }, formSelections: { hostA, portA, hostB, portB, radioASelected: true  } }));
+                    dispatch(addEntry({ metadata: { hostA, portA, hostB, portB }, formSelections: { hostA, portA, hostB, portB, radioASelected: true } }));
                     dispatch(setCurrentView('timeline'));
                 });
 
@@ -339,7 +338,7 @@ export default function GraphView() {
                 // .on("dblclick", resetNodePosition)
                 .on("dblclick.zoom", null) // Prevent zoom on double-click on nodes
                 .on("click", (event, d) => {
-                    dispatch(addEntry({ metadata: null, formSelections: { hostA: d.ip_addr, portA: d.port, hostB: "", portB: "", radioASelected: true  } })); // Add new entry in TimelineView
+                    dispatch(addEntry({ metadata: null, formSelections: { hostA: d.ip_addr, portA: d.port, hostB: "", portB: "", radioASelected: true } })); // Add new entry in TimelineView
                     dispatch(setCurrentView('timeline'));
                     d3.selectAll(".tooltip").remove();
                 });
@@ -360,8 +359,8 @@ export default function GraphView() {
                     .style("opacity", 1)
                     .html(getTooltipContent(d, mode));
 
-                    // Highlight the node with outline on hover
-                    d3.select(event.target).attr("stroke", "#000");
+                // Highlight the node with outline on hover
+                d3.select(event.target).attr("stroke", "#000");
 
             })
                 .on("mousemove", event => {
@@ -479,10 +478,10 @@ export default function GraphView() {
 
     useEffect(() => {
         if (!hostData || !portData) return;
-    
+
         d3.select(graphRef.current).selectAll("text")
             .text(d => getNicknameLabel(d, mode));
-    
+
         const tooltip = d3.select("body").select(".tooltip");
         d3.select(graphRef.current).selectAll("circle")
             .on("mouseover", (event, d) => {
@@ -498,23 +497,23 @@ export default function GraphView() {
             .on("mouseout", () => {
                 tooltip.style("opacity", 0);
             });
-    }, [nicknameMapping, mode]);
-    
+    }, [ nicknameMapping, mode ]);
+
     const getNicknameLabel = (node, mode) => {
         if (mode === 'host') {
-            return nicknameMapping[node.ip_addr] || node.ip_addr;
+            return nicknameMapping[ node.ip_addr ] || node.ip_addr;
         } else {
             const key = `${node.ip_addr}:${node.port}`;
-            return nicknameMapping[key] || `${node.ip_addr}:${node.port}`;
+            return nicknameMapping[ key ] || `${node.ip_addr}:${node.port}`;
         }
-    };       
-    
+    };
+
     const getTooltipContent = (node, mode) => {
         if (mode === 'host') {
-            return `${nicknameMapping[node.ip_addr] ? `${nicknameMapping[node.ip_addr]}<br>` : ''}IP: ${node.ip_addr}<br>Traffic Volume: ${node.traffic_volume}`;
+            return `${nicknameMapping[ node.ip_addr ] ? `${nicknameMapping[ node.ip_addr ]}<br>` : ''}IP: ${node.ip_addr}<br>Traffic Volume: ${node.traffic_volume}`;
         } else {
             const key = `${node.ip_addr}:${node.port}`;
-            return `${nicknameMapping[key] ? `${nicknameMapping[key]}<br>` : ''}IP: ${node.ip_addr}<br>Port: ${node.port}<br>Traffic Volume: ${node.traffic_volume}<br>L4 Protocol: ${node.l4_proto}<br>L7 Protocol: ${node.l7_proto}`;
+            return `${nicknameMapping[ key ] ? `${nicknameMapping[ key ]}<br>` : ''}IP: ${node.ip_addr}<br>Port: ${node.port}<br>Traffic Volume: ${node.traffic_volume}<br>L4 Protocol: ${node.l4_proto}<br>L7 Protocol: ${node.l7_proto}`;
         }
     };
 
@@ -545,7 +544,7 @@ export default function GraphView() {
 
         // Clear all tooltips
         d3.selectAll(".tooltip").remove();
-    }
+    };
 
 
     switch (currentView) {
@@ -554,9 +553,9 @@ export default function GraphView() {
         case 'graph':
             return (
                 <div style={{ position: "relative", width: "100vw", height: "100vh" }}>
-                    <ControlPanel resetAllNodes={resetAllNodes}/>
+                    <ControlPanel resetAllNodes={resetAllNodes} />
                     <div style={{ position: "absolute", right: 40, top: "50vh", zIndex: 10 }}>
-                            <Button className="rounded-circle" variant="light" onClick={onNavigateToTimeline} ><FontAwesomeIcon icon={faChevronRight} size="2xl" /></Button>
+                        <Button className="rounded-circle" variant="light" onClick={onNavigateToTimeline} ><FontAwesomeIcon icon={faChevronRight} size="2xl" /></Button>
                     </div>
                     <svg ref={graphRef} style={{ width: '100%', height: '100%' }} />
                 </div>);
