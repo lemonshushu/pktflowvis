@@ -38,6 +38,11 @@ export const timelineViewSlice = createSlice({
          * (주의! `metadata`는 실제로 현재 D3에 반영된 데이터이며, `formSelections`는 현재 dropdown에서 선택만 되어있고 아직 `Save`를 통해 반영되지는 않음)
          */
         formSelections: [],
+
+        /**
+         * Titles for each timeline entry
+         */
+        entryTitles: [],
     },
     reducers: {
         /**
@@ -61,6 +66,7 @@ export const timelineViewSlice = createSlice({
             state.metadata.push(metadata);
             state.timelineData.push([]);
             state.formSelections.push(formSelections);
+            state.entryTitles.push("");
         },
 
         /**
@@ -79,6 +85,7 @@ export const timelineViewSlice = createSlice({
             state.metadata.splice(action.payload, 1);
             state.timelineData.splice(action.payload, 1);
             state.formSelections.splice(action.payload, 1);
+            state.entryTitles.splice(action.payload, 1);
         },
 
         /**
@@ -119,9 +126,18 @@ export const timelineViewSlice = createSlice({
         setTimelineData: (state, action) => {
             state.timelineData[ state.currentEntry ] = action.payload;
         },
+
+        /**
+         * Set the title of the current entry
+         * - action.payload: title of the entry
+         */
+        setEntryTitle: (state, action) => {
+            state.entryTitles[ state.currentEntry ] = action.payload;
+        }
     },
 });
 
-export const { setCurrentEntry, addEntry, toggleAlignTime, removeEntry, setFormOpts, setFormSelections, setMetadata, setTimelineData, setIsMetaNew } = timelineViewSlice.actions;
+export const { setCurrentEntry, addEntry, toggleAlignTime, removeEntry, setFormOpts, setFormSelections, 
+    setMetadata, setTimelineData, setIsMetaNew, setEntryTitle } = timelineViewSlice.actions;
 
 export default timelineViewSlice.reducer;

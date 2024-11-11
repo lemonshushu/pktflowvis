@@ -34,9 +34,7 @@ export default function TimelineView() {
                 <div>
                     <Container>
                         <Row className="mt-3 mb-3">
-                            <Col xs={1} />
-                            <Col xs={1} className="text-end">Align Time:</Col>
-                            <Col xs={1}><Form.Check type="switch" className="text-start" /></Col>
+                            <Col xs={3}><Form.Check type="switch" label="Align Time" className="ms-3 text-start" /></Col>
                             <Col></Col>
                             <Col xs={3}>
                                 <Button className="rounded-circle" variant="light" onClick={
