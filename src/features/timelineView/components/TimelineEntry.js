@@ -1,8 +1,10 @@
+import { faFloppyDisk, faPencil } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import * as d3 from "d3";
-import { useEffect, useRef } from 'react';
-import { Button, Card, CloseButton, Col, Form, Row } from "react-bootstrap";
+import { useEffect, useRef, useState } from 'react';
+import { Button, Card, CloseButton, Col, Form, OverlayTrigger, Row, Tooltip } from "react-bootstrap";
 import { useDispatch, useSelector } from 'react-redux';
-import { removeEntry, setMetadata, setFormSelections, setTimelineData, setCurrentEntry, setIsMetaNew } from '../timelineViewSlice';
+import { removeEntry, setCurrentEntry, setEntryTitle, setFormSelections, setIsMetaNew, setMetadata, setTimelineData } from '../timelineViewSlice';
 import "./TimelineEntry.css";
 
 export default function TimelineEntry({ entryIndex }) {
@@ -15,6 +17,10 @@ export default function TimelineEntry({ entryIndex }) {
     const timelineData = useSelector((state) => state.timelineView.timelineData);
     const svgRef = useRef(null);
     const isMetaNew = useSelector((state) => state.timelineView.isMetaNew);
+    const entryTitles = useSelector((state) => state.timelineView.entryTitles);
+
+    const [titleText, setTitleText] = useState(entryTitles[ entryIndex ]);
+    const [ titleEditMode, setTitleEditMode ] = useState(false);
 
 
     /**
@@ -206,70 +212,91 @@ export default function TimelineEntry({ entryIndex }) {
 
     };
 
+    const onTitleSave = () => {
+        dispatch(setCurrentEntry(entryIndex));
+        dispatch(setEntryTitle(titleText ));
+        setTitleEditMode(false);
+    }
+
     return (
         <Card className="text-center mb-3">
             <CloseButton className="align-self-end mt-3 me-3" onClick={() => {
                 dispatch(removeEntry(entryIndex));
             }} />
-            <Form.Control placeholder="Entry title" className="entry-title mb-2 align-self-center" />
-            <svg width="80%" height="200px" className="timeline-svg" ref={svgRef} />
-            <Form className="entry-form p-4">
-                <Row>
-                    <Col xs={5}></Col>
-                    <Col xs={3}></Col>
-                    <Col xs={2}>localhost</Col>
-                    <Col xs={1}></Col>
-                </Row>
-                <Row className="mb-3">
-                    <Col xs={5} className="d-flex align-items-center justify-content-center">
-                        <Form.Label column={false}><strong>Host A: </strong></Form.Label>
-                        <Form.Select className="ms-3" style={{ width: 250 }} onChange={onHostAChange} value={formSelection.hostA}>
-                            {formOpts.map((opt, index) => {
-                                return (<option key={index}>{opt.ip_addr}</option>);
-                            })}
-                        </Form.Select>
-                    </Col>
-                    <Col xs={3} className="d-flex align-items-center justify-content-center">
-                        <Form.Label column={false}>Port: </Form.Label>
-                        <Form.Select className="ms-3" style={{ width: 150 }} onChange={onPortAChange} value={formSelection.portA}>
-                            {formOpts.length > 0 ? formOpts[ formOpts.findIndex((opt) => opt.ip_addr === formSelection.hostA) ].ports.map((port, index) => {
-                                return (<option key={index}>{port}</option>);
-                            }
-                            ) : null}
-                        </Form.Select>
-                    </Col>
-                    <Col xs={2} className="d-flex align-items-center justify-content-center">
-                        <Form.Check type="radio" name="localhost" value="A" onChange={onRadioChange} checked={formSelection.radioASelected} />
-                    </Col>
-                    <Col xs={1} className="d-flex align-items-center justify-content-center">
-                        <Button variant="light" onClick={onResetClick}>Reset</Button>
-                    </Col>
-                </Row>
-                <Row>
-                    <Col xs={5} className="d-flex align-items-center justify-content-center">
-                        <Form.Label column={false}><strong>Host B: </strong></Form.Label>
-                        <Form.Select className="ms-3" style={{ width: 250 }} onChange={onHostBChange} value={formSelection.hostB}>
-                            {formOpts.map((opt, index) => {
-                                return (<option key={index}>{opt.ip_addr}</option>);
-                            })}</Form.Select>
-                    </Col>
-                    <Col xs={3} className="d-flex align-items-center justify-content-center">
-                        <Form.Label column={false}>Port: </Form.Label>
-                        <Form.Select className="ms-3" style={{ width: 150 }} onChange={onPortBChange} value={formSelection.portB}>
-                            {formOpts.length > 0 ? formOpts[ formOpts.findIndex((opt) => opt.ip_addr === formSelection.hostB) ].ports.map((port, index) => {
-                                return (<option key={index}>{port}</option>);
-                            }
-                            ) : null}
-                        </Form.Select>
-                    </Col>
-                    <Col xs={2} className="d-flex align-items-center justify-content-center">
-                        <Form.Check type="radio" name="localhost" value="B" onChange={onRadioChange} checked={!formSelection.radioASelected} />
-                    </Col>
-                    <Col xs={1} className="d-flex align-items-center justify-content-center">
-                        <Button onClick={onFormSubmit}>Save</Button>
-                    </Col>
-                </Row>
-            </Form>
+            <Card.Body>
+                {titleEditMode ?
+                    <div className="mb-2 align-self-center d-flex justify-content-center">
+                        <Form.Control placeholder="Entry title" className="entry-title" value={titleText} onChange={(e) => setTitleText(e.target.value)} />
+                        <OverlayTrigger placement="top" overlay={<Tooltip>Save</Tooltip>}>
+                            <FontAwesomeIcon style={{cursor:'pointer'}} icon={faFloppyDisk} className="ms-2 align-self-center" onClick={onTitleSave} />
+                        </OverlayTrigger>
+                    </div>
+                    :
+                    <div>
+                        <Card.Title>{entryTitles[ entryIndex ]}<OverlayTrigger placement="top" overlay={<Tooltip>Click to edit title</Tooltip>}>
+                        <FontAwesomeIcon style={{cursor:'pointer'}} icon={faPencil} className="ms-2" onClick={() => setTitleEditMode(true)} /></OverlayTrigger></Card.Title>
+                        
+                    </div>
+                }
+                <svg width="80%" height="200px" className="timeline-svg" ref={svgRef} />
+                <Form className="entry-form p-4">
+                    <Row>
+                        <Col xs={5}></Col>
+                        <Col xs={3}></Col>
+                        <Col xs={2}>localhost</Col>
+                        <Col xs={1}></Col>
+                    </Row>
+                    <Row className="mb-3">
+                        <Col xs={5} className="d-flex align-items-center justify-content-center">
+                            <Form.Label column={false}><strong>Host A: </strong></Form.Label>
+                            <Form.Select className="ms-3" style={{ width: 250 }} onChange={onHostAChange} value={formSelection.hostA}>
+                                {formOpts.map((opt, index) => {
+                                    return (<option key={index}>{opt.ip_addr}</option>);
+                                })}
+                            </Form.Select>
+                        </Col>
+                        <Col xs={3} className="d-flex align-items-center justify-content-center">
+                            <Form.Label column={false}>Port: </Form.Label>
+                            <Form.Select className="ms-3" style={{ width: 150 }} onChange={onPortAChange} value={formSelection.portA}>
+                                {formOpts.length > 0 ? formOpts[ formOpts.findIndex((opt) => opt.ip_addr === formSelection.hostA) ].ports.map((port, index) => {
+                                    return (<option key={index}>{port}</option>);
+                                }
+                                ) : null}
+                            </Form.Select>
+                        </Col>
+                        <Col xs={2} className="d-flex align-items-center justify-content-center">
+                            <Form.Check type="radio" name="localhost" value="A" onChange={onRadioChange} checked={formSelection.radioASelected} />
+                        </Col>
+                        <Col xs={1} className="d-flex align-items-center justify-content-center">
+                            <Button variant="light" onClick={onResetClick}>Reset</Button>
+                        </Col>
+                    </Row>
+                    <Row>
+                        <Col xs={5} className="d-flex align-items-center justify-content-center">
+                            <Form.Label column={false}><strong>Host B: </strong></Form.Label>
+                            <Form.Select className="ms-3" style={{ width: 250 }} onChange={onHostBChange} value={formSelection.hostB}>
+                                {formOpts.map((opt, index) => {
+                                    return (<option key={index}>{opt.ip_addr}</option>);
+                                })}</Form.Select>
+                        </Col>
+                        <Col xs={3} className="d-flex align-items-center justify-content-center">
+                            <Form.Label column={false}>Port: </Form.Label>
+                            <Form.Select className="ms-3" style={{ width: 150 }} onChange={onPortBChange} value={formSelection.portB}>
+                                {formOpts.length > 0 ? formOpts[ formOpts.findIndex((opt) => opt.ip_addr === formSelection.hostB) ].ports.map((port, index) => {
+                                    return (<option key={index}>{port}</option>);
+                                }
+                                ) : null}
+                            </Form.Select>
+                        </Col>
+                        <Col xs={2} className="d-flex align-items-center justify-content-center">
+                            <Form.Check type="radio" name="localhost" value="B" onChange={onRadioChange} checked={!formSelection.radioASelected} />
+                        </Col>
+                        <Col xs={1} className="d-flex align-items-center justify-content-center">
+                            <Button onClick={onFormSubmit}>Save</Button>
+                        </Col>
+                    </Row>
+                </Form>
+            </Card.Body>
         </Card>
     );
 }
