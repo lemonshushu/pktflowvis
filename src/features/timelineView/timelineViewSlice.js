@@ -14,7 +14,7 @@ export const timelineViewSlice = createSlice({
         alignTime: false,
 
         /**
-         * The current (hostA, portA, hostB, portB, localhost) for each timeline entry
+         * The current {hostA, portA, hostB, portB, localhost, propDelay} for each timeline entry
          */
         metadata: [],
 

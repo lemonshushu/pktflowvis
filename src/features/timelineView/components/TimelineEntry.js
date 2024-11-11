@@ -16,6 +16,10 @@ export default function TimelineEntry({ entryIndex }) {
     const svgRef = useRef(null);
     const isMetaNew = useSelector((state) => state.timelineView.isMetaNew);
 
+
+    /**
+     * Filter out packets based on the selected hosts and ports, sort them by time, and set the timeline data for D3 visualization
+     */
     useEffect(() => {
         const ipA = metadata[ entryIndex ].hostA;
         const ipB = metadata[ entryIndex ].hostB;
@@ -45,7 +49,7 @@ export default function TimelineEntry({ entryIndex }) {
             }
             );
 
-            // If data is empty, return
+            // If data is empty, return (i.e., No traffic between the selected hosts and ports)
             if (data.length === 0) {
                 alert("No data found for the selected hosts and ports");
                 return;
@@ -60,6 +64,10 @@ export default function TimelineEntry({ entryIndex }) {
 
     }, [ metadata, packets, dispatch, entryIndex, isMetaNew ]);
 
+
+    /**
+     * Calculate average propagation delay between packets and set it in `metadata.propDelay`
+     */
     useEffect(() => {
 
         // Calculate average propagation delay and add to `metadata`
@@ -76,6 +84,11 @@ export default function TimelineEntry({ entryIndex }) {
         }
     }, [ timelineData, entryIndex, dispatch, metadata ]);
 
+
+
+    /**
+     * D3 visualization of the timeline
+     */
     useEffect(() => {
         // Only proceed if `propDelay` is available in `metadata`
         if (!metadata[ entryIndex ].propDelay) {
@@ -147,35 +160,37 @@ export default function TimelineEntry({ entryIndex }) {
     };
 
     const onPortAChange = (e) => {
-        // dispatch(setFormSelections({ index: entryIndex, selection: { ...formSelection, portA: e.target.value } }));
         dispatch(setCurrentEntry(entryIndex));
         dispatch(setFormSelections({ ...formSelection, portA: e.target.value }));
     };
 
     const onHostBChange = (e) => {
-        // dispatch(setFormSelections({ index: entryIndex, selection: { ...formSelection, hostB: e.target.value, hostBIndex: formOpts.findIndex((opt) => opt.ip_addr === e.target.value) } }));
         dispatch(setCurrentEntry(entryIndex));
         dispatch(setFormSelections({ ...formSelection, hostB: e.target.value }));
     };
 
     const onPortBChange = (e) => {
-        // dispatch(setFormSelections({ index: entryIndex, selection: { ...formSelection, portB: e.target.value } }));
         dispatch(setCurrentEntry(entryIndex));
         dispatch(setFormSelections({ ...formSelection, portB: e.target.value }));
     };
 
     const onRadioChange = (e) => {
-        // dispatch(setFormSelections({ index: entryIndex, selection: { ...formSelection, radioASelected: e.target.value === "A" } }));
         dispatch(setCurrentEntry(entryIndex));
         dispatch(setFormSelections({ ...formSelection, radioASelected: e.target.value === "A" }));
     };
 
+    /**
+     * Reset the form fields to the original values in `metadata`
+     */
     const onResetClick = () => {
         const currentMeta = metadata[ entryIndex ];
         dispatch(setCurrentEntry(entryIndex));
         dispatch(setFormSelections({ hostA: currentMeta.hostA, portA: currentMeta.portA, hostB: currentMeta.hostB, portB: currentMeta.portB, radioASelected: currentMeta.localhost === "A" }));
     };
 
+    /**
+     * Save the form selections to `metadata`
+     */
     const onFormSubmit = () => {
         if (!formSelection.hostA || !formSelection.portA || !formSelection.hostB || !formSelection.portB) {
             alert("Please fill out all fields");
