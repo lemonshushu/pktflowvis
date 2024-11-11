@@ -19,7 +19,7 @@ export default function TimelineEntry({ entryIndex }) {
     const isMetaNew = useSelector((state) => state.timelineView.isMetaNew);
     const entryTitles = useSelector((state) => state.timelineView.entryTitles);
 
-    const [titleText, setTitleText] = useState(entryTitles[ entryIndex ]);
+    const [ titleText, setTitleText ] = useState(entryTitles[ entryIndex ]);
     const [ titleEditMode, setTitleEditMode ] = useState(false);
 
 
@@ -72,23 +72,88 @@ export default function TimelineEntry({ entryIndex }) {
 
 
     /**
-     * Calculate average propagation delay between packets and set it in `metadata.propDelay`
-     */
+    * Calculate average propagation delay between packets and set it in `metadata.propDelay`
+    */
     useEffect(() => {
-
-        // Calculate average propagation delay and add to `metadata`
+        // Calculate propagation delay using RTT between TX and RX packets
         if (timelineData[ entryIndex ].length > 0 && !metadata[ entryIndex ].propDelay) {
             const data = timelineData[ entryIndex ];
             const delays = [];
-            for (let i = 0; i < data.length - 1; i++) {
-                const delay = data[ i + 1 ]._source.layers.frame[ "frame.time_epoch" ] - data[ i ]._source.layers.frame[ "frame.time_epoch" ];
-                delays.push(delay);
+
+            // Determine local and remote IP addresses and ports
+            const isLocalHostA = metadata[ entryIndex ].localhost === "A";
+            const localIP = isLocalHostA ? metadata[ entryIndex ].hostA : metadata[ entryIndex ].hostB;
+            const localPort = isLocalHostA ? metadata[ entryIndex ].portA : metadata[ entryIndex ].portB;
+            const remoteIP = isLocalHostA ? metadata[ entryIndex ].hostB : metadata[ entryIndex ].hostA;
+            const remotePort = isLocalHostA ? metadata[ entryIndex ].portB : metadata[ entryIndex ].portA;
+
+            // Helper function to extract packet info
+            function getPacketInfo(packet) {
+                const srcIP = packet._source.layers.ip[ "ip.src" ];
+                const dstIP = packet._source.layers.ip[ "ip.dst" ];
+                let srcPort, dstPort;
+
+                if (packet._source.layers.tcp) {
+                    srcPort = packet._source.layers.tcp[ "tcp.srcport" ];
+                    dstPort = packet._source.layers.tcp[ "tcp.dstport" ];
+                } else if (packet._source.layers.udp) {
+                    srcPort = packet._source.layers.udp[ "udp.srcport" ];
+                    dstPort = packet._source.layers.udp[ "udp.dstport" ];
+                } else {
+                    // Not TCP or UDP, cannot get ports
+                    srcPort = null;
+                    dstPort = null;
+                }
+
+                return { srcIP, dstIP, srcPort, dstPort };
             }
 
-            const avgDelay = delays.reduce((acc, curr) => acc + curr, 0) / delays.length;
+            for (let i = 0; i < data.length - 1; i++) {
+                const currentPacket = data[ i ];
+                const nextPacket = data[ i + 1 ];
+
+                const currentTime = parseFloat(currentPacket._source.layers.frame[ "frame.time_epoch" ]);
+                const nextTime = parseFloat(nextPacket._source.layers.frame[ "frame.time_epoch" ]);
+
+                const currentPacketInfo = getPacketInfo(currentPacket);
+                const nextPacketInfo = getPacketInfo(nextPacket);
+
+                // Determine if current packet is TX (from local IP and port to remote IP and port)
+                const isCurrentTX = currentPacketInfo.srcIP === localIP &&
+                    currentPacketInfo.dstIP === remoteIP &&
+                    currentPacketInfo.srcPort === localPort &&
+                    currentPacketInfo.dstPort === remotePort;
+
+                // Determine if next packet is RX (from remote IP and port to local IP and port)
+                const isNextRX = nextPacketInfo.srcIP === remoteIP &&
+                    nextPacketInfo.dstIP === localIP &&
+                    nextPacketInfo.srcPort === remotePort &&
+                    nextPacketInfo.dstPort === localPort;
+
+                if (isCurrentTX && isNextRX) {
+                    const delta = nextTime - currentTime;
+
+                    if (delta > 0) {
+                        delays.push(delta);
+                    }
+                }
+            }
+
+            // If no valid delays are found, set a default propagation delay
+            let avgDelay;
+            if (delays.length > 0) {
+                // Since delta is RTT, the propagation delay is half of the average RTT
+                avgDelay = (delays.reduce((acc, curr) => acc + curr, 0) / delays.length) / 2;
+            } else {
+                avgDelay = 0.001; // Default to 1 millisecond if no delays are found
+            }
+
             dispatch(setMetadata({ ...metadata[ entryIndex ], propDelay: avgDelay }));
         }
     }, [ timelineData, entryIndex, dispatch, metadata ]);
+
+
+
 
 
 
@@ -113,45 +178,273 @@ export default function TimelineEntry({ entryIndex }) {
         // The timestamp in the packets is the time of the host selected as localhost in `metadata`
         // Packets are displayed as arrows pointing from the source host to the destination host.
         // The slope of the arrow represents the propagation delay between the two hosts.
-        const margin = { top: 20, right: 20, bottom: 20, left: 20 };
-        const width = svgRef.current.clientWidth - margin.left - margin.right;
-        const height = svgRef.current.clientHeight - margin.top - margin.bottom;
+        // ADD YOUR CODE HERE
+        // After svg.selectAll("*").remove();
 
-        // Draw Host A line
-        svg.append("line")
-            .attr("x1", margin.left)
-            .attr("y1", height / 5)
-            .attr("x2", width + margin.left)
-            .attr("y2", height / 5)
-            .attr("stroke", "black")
-            .attr("stroke-width", 2);
+        const margin = { top: 20, right: 30, bottom: 50, left: 80 };
+        const svgWidth = svgRef.current.clientWidth - margin.left - margin.right;
+        const svgHeight = svgRef.current.clientHeight - margin.top - margin.bottom;
 
-        // Draw Host B line
-        svg.append("line")
-            .attr("x1", margin.left)
-            .attr("y1", height * 4 / 5)
-            .attr("x2", width + margin.left)
-            .attr("y2", height * 4 / 5)
-            .attr("stroke", "black")
-            .attr("stroke-width", 2);
+        const svgGroup = svg.append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
 
-        // Label Host A
-        svg.append("text")
-            .attr("x", margin.left)
-            .attr("y", height / 5 - 5)
-            .text(metadata[ entryIndex ].hostA + ":" + metadata[ entryIndex ].portA)
-            .attr("font-family", "sans-serif")
-            .attr("font-size", "12px")
-            .attr("fill", "black");
+        // Define host positions
+        const hostAY = 0;
+        const hostBY = svgHeight;
 
-        // Label Host B
-        svg.append("text")
-            .attr("x", margin.left)
-            .attr("y", height * 4 / 5 - 5)
-            .text(metadata[ entryIndex ].hostB + ":" + metadata[ entryIndex ].portB)
-            .attr("font-family", "sans-serif")
-            .attr("font-size", "12px")
-            .attr("fill", "black");
+        // Get metadata and constants
+        const ipA = metadata[ entryIndex ].hostA;
+        const ipB = metadata[ entryIndex ].hostB;
+        const propDelay = metadata[ entryIndex ].propDelay;
+        const localhost = metadata[ entryIndex ].localhost; // "A" or "B"
+
+        // Extract times and define scales
+        let times = data.map(d => parseFloat(d._source.layers.frame[ "frame.time_epoch" ]));
+
+        // Crop out blank time at the start and end
+        const timeThreshold = 1; // Time in seconds to consider as idle time
+        const activeTimes = times.filter((time, index) => {
+            if (index === 0) return true;
+            const delta = time - times[ index - 1 ];
+            return delta < timeThreshold;
+        });
+
+        // If no active times found, use original times
+        if (activeTimes.length === 0) {
+            activeTimes.push(times[ 0 ], times[ times.length - 1 ]);
+        }
+
+        const timeMin = d3.min(activeTimes);
+        const timeMax = d3.max(activeTimes);
+
+        // Add padding to time domain
+        const timePadding = (timeMax - timeMin) * 0.05; // 5% padding on each side
+        const timeDomainStart = timeMin - timePadding;
+        const timeDomainEnd = timeMax + timePadding;
+
+        const xScale = d3.scaleTime()
+            .domain([ new Date(timeDomainStart * 1000), new Date(timeDomainEnd * 1000) ])
+            .range([ 0, svgWidth ]);
+
+        const xAxis = d3.axisBottom(xScale)
+            .ticks(5)
+            .tickFormat(d3.timeFormat("%H:%M:%S.%L")); // Format to show hours, minutes, seconds, milliseconds
+
+        const yPositions = {
+            "A": hostAY,
+            "B": hostBY
+        };
+
+        // Draw host lines
+        svgGroup.append("line")
+            .attr("class", "host-line")
+            .attr("x1", 0)
+            .attr("y1", hostAY)
+            .attr("x2", svgWidth)
+            .attr("y2", hostAY)
+            .attr("stroke", "black");
+
+        svgGroup.append("line")
+            .attr("class", "host-line")
+            .attr("x1", 0)
+            .attr("y1", hostBY)
+            .attr("x2", svgWidth)
+            .attr("y2", hostBY)
+            .attr("stroke", "black");
+
+        // Add host labels
+        svgGroup.append("text")
+            .attr("x", -margin.left + 10)
+            .attr("y", hostAY)
+            .attr("dy", "0.35em")
+            .text(`Host A (${ipA})`)
+            .style("font-size", "12px");
+
+        svgGroup.append("text")
+            .attr("x", -margin.left + 10)
+            .attr("y", hostBY)
+            .attr("dy", "0.35em")
+            .text(`Host B (${ipB})`)
+            .style("font-size", "12px");
+
+        // Define arrowhead marker
+        svg.append("defs").append("marker")
+            .attr("id", `arrowhead-${entryIndex}`)
+            .attr("viewBox", "0 -5 10 10")
+            .attr("refX", 10)
+            .attr("refY", 0)
+            .attr("orient", "auto")
+            .attr("markerWidth", 6)
+            .attr("markerHeight", 6)
+            .append("path")
+            .attr("d", "M0,-5L10,0L0,5")
+            .attr("fill", "currentColor"); // Use current color
+
+        // Define color scale for protocols
+        const protocolSet = new Set();
+        data.forEach(packet => {
+            const layers = Object.keys(packet._source.layers);
+            layers.forEach(layer => protocolSet.add(layer));
+        });
+        const protocolList = Array.from(protocolSet);
+        const protocolColor = d3.scaleOrdinal()
+            .domain(protocolList)
+            .range(d3.schemeCategory10.concat(d3.schemeSet3)); // Extend color scheme if needed
+
+        // Process packets
+        const packets = data.map(packet => {
+            const time = parseFloat(packet._source.layers.frame[ "frame.time_epoch" ]);
+            const srcIP = packet._source.layers.ip[ "ip.src" ];
+            const dstIP = packet._source.layers.ip[ "ip.dst" ];
+            let sourceHost, destHost;
+            if (srcIP === ipA && dstIP === ipB) {
+                sourceHost = "A";
+                destHost = "B";
+            } else if (srcIP === ipB && dstIP === ipA) {
+                sourceHost = "B";
+                destHost = "A";
+            } else {
+                // Should not happen
+                console.warn("Packet does not match hosts", packet);
+            }
+
+            // Extract all protocol layers excluding frame and ip
+            const layers = Object.keys(packet._source.layers);
+            const l7Protocols = layers.filter(layer => ![ "frame", "ip", "eth", "data" ].includes(layer));
+
+            // Join protocols into a single string
+            const l7Protocol = l7Protocols.length > 0 ? l7Protocols.join(", ") : "Unknown";
+
+            return {
+                time,
+                sourceHost,
+                destHost,
+                l7Protocol,
+            };
+        });
+
+        // Compute send and receive times
+        const processedPackets = packets.map(packet => {
+            const { time, sourceHost, destHost, l7Protocol } = packet;
+            let sendTime, receiveTime;
+            if (localhost === sourceHost) {
+                // Timestamps are send times
+                sendTime = time;
+                receiveTime = sendTime + propDelay;
+            } else {
+                // Timestamps are receive times
+                receiveTime = time;
+                sendTime = receiveTime - propDelay;
+            }
+            return {
+                sendTime,
+                receiveTime,
+                sourceHost,
+                destHost,
+                l7Protocol,
+            };
+        });
+
+        // Create tooltip div (hidden by default)
+        const tooltip = d3.select(svgRef.current.parentNode)
+            .append("div")
+            .attr("class", "tooltip")
+            .style("position", "absolute")
+            .style("background", "#f9f9f9")
+            .style("padding", "5px")
+            .style("border", "1px solid #d3d3d3")
+            .style("border-radius", "5px")
+            .style("pointer-events", "none")
+            .style("opacity", 0);
+
+        // Draw packets as arrows
+        const packetLinesGroup = svgGroup.append("g").attr("class", "packet-lines");
+
+        const packetLines = packetLinesGroup.selectAll(".packet")
+            .data(processedPackets)
+            .enter()
+            .append("line")
+            .attr("class", "packet")
+            .attr("x1", d => xScale(new Date(d.sendTime * 1000)))
+            .attr("y1", d => yPositions[ d.sourceHost ])
+            .attr("x2", d => xScale(new Date(d.receiveTime * 1000)))
+            .attr("y2", d => yPositions[ d.destHost ])
+            .attr("stroke", d => protocolColor(d.l7Protocol))
+            .attr("stroke-width", 3) // Increased thickness
+            .attr("marker-end", `url(#arrowhead-${entryIndex})`)
+            .on("mouseover", function (event, d) {
+                d3.select(this).attr("stroke-width", 5);
+                tooltip.transition().duration(200).style("opacity", 1);
+                tooltip.html(`Protocol: ${d.l7Protocol}`)
+                    .style("left", (event.pageX + 5) + "px")
+                    .style("top", (event.pageY - 28) + "px");
+            })
+            .on("mouseout", function () {
+                d3.select(this).attr("stroke-width", 3);
+                tooltip.transition().duration(500).style("opacity", 0);
+            });
+
+        // Add x-axis
+        const xAxisGroup = svgGroup.append("g")
+            .attr("class", "x-axis")
+            .attr("transform", `translate(0, ${svgHeight + 10})`)
+            .call(xAxis);
+
+        // Add grid lines with dotted lines
+        svgGroup.append("g")
+            .attr("class", "grid")
+            .attr("transform", `translate(0, ${svgHeight + 10})`)
+            .call(
+                d3.axisBottom(xScale)
+                    .ticks(5)
+                    .tickSize(-svgHeight - 10) // Extend grid lines upward
+                    .tickFormat("")
+            )
+            .selectAll(".tick line")
+            .attr("stroke", "#e0e0e0")
+            .attr("stroke-dasharray", "2,2"); // Dotted lines
+
+        // Bring the x-axis to the front
+        svgGroup.selectAll(".x-axis").raise();
+
+        // Add zoom behavior
+        const zoom = d3.zoom()
+            .scaleExtent([ 0.5, 20 ]) // Adjust scale extent as needed
+            .translateExtent([ [ 0, 0 ], [ svgWidth, svgHeight ] ])
+            .on("zoom", zoomed);
+
+        svg.call(zoom);
+
+        // Zoom function
+        function zoomed(event) {
+            const newXScale = event.transform.rescaleX(xScale);
+
+            // Update x-axis
+            xAxisGroup.call(
+                xAxis.scale(newXScale)
+            );
+
+            // Update grid lines
+            svgGroup.select(".grid")
+                .call(
+                    d3.axisBottom(newXScale)
+                        .ticks(5)
+                        .tickSize(-svgHeight - 10)
+                        .tickFormat("")
+                )
+                .selectAll(".tick line")
+                .attr("stroke", "#e0e0e0")
+                .attr("stroke-dasharray", "2,2"); // Dotted lines
+
+            // Update packet lines
+            packetLines.attr("x1", d => newXScale(new Date(d.sendTime * 1000)))
+                .attr("x2", d => newXScale(new Date(d.receiveTime * 1000)));
+
+            // Update host lines
+            svgGroup.selectAll(".host-line")
+                .attr("x1", newXScale.range()[ 0 ])
+                .attr("x2", newXScale.range()[ 1 ]);
+        }
 
 
 
@@ -214,9 +507,9 @@ export default function TimelineEntry({ entryIndex }) {
 
     const onTitleSave = () => {
         dispatch(setCurrentEntry(entryIndex));
-        dispatch(setEntryTitle(titleText ));
+        dispatch(setEntryTitle(titleText));
         setTitleEditMode(false);
-    }
+    };
 
     return (
         <Card className="text-center mb-3">
@@ -227,14 +520,14 @@ export default function TimelineEntry({ entryIndex }) {
                 {titleEditMode ?
                     <div className="mb-2 align-self-center d-flex justify-content-center">
                         <Form.Control placeholder="Entry title" className="entry-title" value={titleText} onChange={(e) => setTitleText(e.target.value)} />
-                        <FontAwesomeIcon style={{cursor:'pointer'}} icon={faFloppyDisk} className="ms-2 align-self-center" onClick={onTitleSave} />
-                        <FontAwesomeIcon style={{cursor:'pointer'}} icon={faX} className="ms-2 align-self-center" onClick={() => setTitleEditMode(false)} />
+                        <FontAwesomeIcon style={{ cursor: 'pointer' }} icon={faFloppyDisk} className="ms-2 align-self-center" onClick={onTitleSave} />
+                        <FontAwesomeIcon style={{ cursor: 'pointer' }} icon={faX} className="ms-2 align-self-center" onClick={() => setTitleEditMode(false)} />
                     </div>
                     :
                     <div>
                         <Card.Title>{entryTitles[ entryIndex ]}<OverlayTrigger placement="top" overlay={<Tooltip>Click to edit title</Tooltip>}>
-                        <FontAwesomeIcon style={{cursor:'pointer'}} icon={faPencil} className="ms-2" onClick={() => setTitleEditMode(true)} /></OverlayTrigger></Card.Title>
-                        
+                            <FontAwesomeIcon style={{ cursor: 'pointer' }} icon={faPencil} className="ms-2" onClick={() => setTitleEditMode(true)} /></OverlayTrigger></Card.Title>
+
                     </div>
                 }
                 <svg width="80%" height="200px" className="timeline-svg" ref={svgRef} />
