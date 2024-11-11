@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { Button, Col, Container, Row } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
 import { Navigate } from 'react-router-dom';
-import Toggle from 'react-toggle';
+import { Form } from 'react-bootstrap';
 import { setCurrentView } from '../data/dataSlice';
 import TimelineEntry from './components/TimelineEntry';
 import { addEntry } from './timelineViewSlice';
@@ -34,7 +34,9 @@ export default function TimelineView() {
                 <div>
                     <Container>
                         <Row className="mt-3 mb-3">
-                            <Col xs={3}>Align time: <Toggle></Toggle></Col>
+                            <Col xs={1} />
+                            <Col xs={1} className="text-end">Align Time:</Col>
+                            <Col xs={1}><Form.Check type="switch" className="text-start" /></Col>
                             <Col></Col>
                             <Col xs={3}>
                                 <Button className="rounded-circle" variant="light" onClick={

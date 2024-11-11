@@ -1,6 +1,6 @@
 import * as d3 from "d3";
 import { useEffect, useRef } from 'react';
-import { Button, CloseButton, Col, Form, Row } from "react-bootstrap";
+import { Button, Card, CloseButton, Col, Form, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from 'react-redux';
 import { removeEntry, setMetadata, setFormSelections, setTimelineData, setCurrentEntry, setIsMetaNew } from '../timelineViewSlice';
 import "./TimelineEntry.css";
@@ -207,11 +207,11 @@ export default function TimelineEntry({ entryIndex }) {
     };
 
     return (
-        <div className="timeline-entry d-flex align-items-center flex-column mb-3">
+        <Card className="text-center mb-3">
             <CloseButton className="align-self-end mt-3 me-3" onClick={() => {
                 dispatch(removeEntry(entryIndex));
             }} />
-            <Form.Control placeholder="Entry title" className="entry-title mb-2" />
+            <Form.Control placeholder="Entry title" className="entry-title mb-2 align-self-center" />
             <svg width="80%" height="200px" className="timeline-svg" ref={svgRef} />
             <Form className="entry-form p-4">
                 <Row>
@@ -270,6 +270,6 @@ export default function TimelineEntry({ entryIndex }) {
                     </Col>
                 </Row>
             </Form>
-        </div>
+        </Card>
     );
 }
