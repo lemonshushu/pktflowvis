@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setMode } from '../graphViewSlice';
 import { setNicknameMapping, resetNicknameMapping, setIsNicknameChangeOpen, setIsShowProtocolsOpen, setShowL4Protocol, setShowL7Protocol } from './controlPanelSlice';
-import Toggle from 'react-toggle';
-import "react-toggle/style.css";
 import { Button, Form} from 'react-bootstrap';
 
 export default function ControlPanel(props) {
@@ -90,14 +88,7 @@ export default function ControlPanel(props) {
         packets && (
             <div style={{ position: 'absolute', top: 70, left: 40, width: "300px", padding: "20px", borderRadius: "15px", border: "1px solid #ccc", backgroundColor: "#fff", boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.1)" }}>
                  {/* Port 분리 토글 버튼 */}
-                 <div style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>                        
-                    <Toggle
-                        id='split-toggle'
-                        defaultChecked={mode === 'port'}
-                        onChange={(e) => dispatch(setMode(e.target.checked ? 'port' : 'host'))}
-                    />
-                    <label htmlFor='split-toggle' style={{ marginLeft: '10px',  lineHeight: '0'}}>Split Hosts by Ports</label>
-                </div>
+                <Form.Check type="switch" id="split-toggle" label="Split Hosts by Ports" className="mb-3" defaultChecked={mode === 'port'} onChange={(e) => dispatch(setMode(e.target.checked ? 'port' : 'host'))}></Form.Check>
 
                 {/* 모든 위치 초기화 버튼 */}
                 <div style={{ marginBottom: "20px", width: "100%" }}>
@@ -206,15 +197,7 @@ export default function ControlPanel(props) {
                             </div>
                             {/* L4 Protocol 메뉴 */}
                             {showL4Protocol && (
-                                <div style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", borderBottom: "1px dashed #ccc", paddingBottom: "10px" }}>
-                                {/* <div style={{ marginBottom: "20px", width: "100%" }}> */}
-                                    <Toggle
-                                        id='l4-protocol-toggle'
-                                        checked={showL4Protocol}
-                                        onChange={(e) => dispatch(setShowL4Protocol(e.target.checked))}
-                                    />
-                                    <label htmlFor='l4-protocol-toggle' style={{ marginLeft: '10px', lineHeight: '0' }}>Show L4 Protocol</label>
-                                </div>
+                                <Form.Check type="switch" id="l4-protocol-toggle" label="Show L4 Protocol" className="mb-3" defaultChecked={showL4Protocol} onChange={(e) => dispatch(setShowL4Protocol(e.target.checked))}></Form.Check>
                             )}
                             <div 
                                 style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}
@@ -225,14 +208,7 @@ export default function ControlPanel(props) {
                             </div>
                             {/* L7 Protocol 메뉴 */}
                             {showL7Protocol && (
-                                <div style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px",paddingBottom: "10px" }}>
-                                    <Toggle
-                                        id='l7-protocol-toggle'
-                                        checked={showL7Protocol}
-                                        onChange={(e) => dispatch(setShowL7Protocol(e.target.checked))}
-                                    />
-                                    <label htmlFor='l7-protocol-toggle' style={{ marginLeft: '10px', lineHeight: '0' }}>Show L7 Protocol</label>
-                                </div>
+                                <Form.Check type="switch" id="l7-protocol-toggle" label="Show L7 Protocol" className="mb-3" defaultChecked={showL7Protocol} onChange={(e) => dispatch(setShowL7Protocol(e.target.checked))}></Form.Check>
                             )}
                         </div>
                     )}
