@@ -17,20 +17,20 @@ export default function ControlPanel(props) {
     return (
         packets && (
             <div style={{ position: 'absolute', top: 70, left: 40, width: "300px", padding: "20px", borderRadius: "15px", border: "1px solid #ccc", backgroundColor: "#fff", boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.1)" }}>
-                 {/* Port 분리 토글 버튼 */}
-                 <div className = "toggle-container">          
+                {/* Port 분리 토글 버튼 */}
+                <div className = "toggle-container">
+                    <FormCheckLabel htmlFor='split-toggle' className='toggle-label'>Split Hosts by Ports</FormCheckLabel>
                     <Form.Check 
                         type = "switch" 
                         id="split-toggle"
                         className='split-toggle'
                         // label="Split Hosts By Ports"
                         defaultChecked={mode === "port"}
-                        onChange={(e) => dispatch(setMode(e.target.checked ? 'port' : 'host'))}/>    
-                    <FormCheckLabel htmlFor='split-toggle' className='toggle-label'>Split Hosts by Ports</FormCheckLabel>           
+                        onChange={(e) => dispatch(setMode(e.target.checked ? 'port' : 'host'))}/>
                 </div>
 
                 {/* 모든 위치 초기화 버튼 */}
-                <div style={{ marginBottom: "20px", width: "100%" }}>
+                <div style={{ marginTop: '10px', marginBottom: "20px", width: "100%" }}>
                     <Button onClick={props.resetAllNodes} style={{ width: "100%" }} disabled={!isSimulationStable}>Reset All Positions</Button>
                 </div>
 

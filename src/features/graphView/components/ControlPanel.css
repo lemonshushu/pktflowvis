@@ -2,13 +2,18 @@
     cursor: pointer;
     display: flex;
     justify-content: space-between;
-    align-items: center; 
-    margin-bottom: 10px; 
+    align-items: center;
 }
 
 .toggle-label {
-    margin-left: 10px;
     font-weight: bold;
+}
+
+.submenu-container {
+    border: 1px solid #ccc; 
+    border-radius: 8px;
+    padding: 10px;
+    background-color: #f9f9f9; 
 }
 
 .menubar {
