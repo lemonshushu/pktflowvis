@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setIsShowProtocolsOpen, setShowL4Protocol, setShowL7Protocol } from './controlPanelSlice';
-import Toggle from 'react-toggle';
-import "react-toggle/style.css";
 import "./ControlPanel.css"
-import { Button } from 'react-bootstrap';
+import { Form } from 'react-bootstrap';
+import FormCheckLabel from 'react-bootstrap/FormCheckLabel'
 
 export default function ProtocolFilter() {
     const mode = useSelector((state) => state.graphView.mode);
@@ -19,12 +18,11 @@ export default function ProtocolFilter() {
         <div>
             <div 
                 className='menubar'
-                onClick={() => dispatch(setIsShowProtocolsOpen(isShowProtocolsOpen))}
+                // onClick={() => dispatch(setIsShowProtocolsOpen(isShowProtocolsOpen))}
             >
-                <label htmlFor='show-protocols-toggle' style={{ marginLeft: '10px', fontWeight: 'bold' }}>
-                    Filter Protocols
-                </label>
-                <Toggle
+                <FormCheckLabel htmlFor='show-protocols-toggle' style={{ marginLeft: '10px', fontWeight: 'bold' }}>Filter Protocols</FormCheckLabel>
+                <Form.Check
+                    type='switch'
                     id='show-protocols-toggle'
                     checked={isShowProtocolsOpen}
                     onChange={(e) => dispatch(setIsShowProtocolsOpen(e.target.checked))}
@@ -49,10 +47,9 @@ export default function ProtocolFilter() {
                     {/* L4 Protocol 메뉴 */}
                     {showL4Protocol && (
                         <div className='toggle-container' style={{ borderBottom: "1px dashed #ccc", paddingBottom: "10px" }}>
-                            <label htmlFor='l4-protocol-toggle' className='toggle-label'>
-                                Show L4 Protocol
-                            </label>
-                            <Toggle
+                            <FormCheckLabel htmlFor='l4-protocol-toggle' className='toggle-label'>Show L4 Protocol</FormCheckLabel>
+                            <Form.Check
+                                type='switch'
                                 id='l4-protocol-toggle'
                                 checked={showL4Protocol}
                                 onChange={(e) => dispatch(setShowL4Protocol(e.target.checked))}
@@ -69,10 +66,11 @@ export default function ProtocolFilter() {
                     {/* L7 Protocol 메뉴 */}
                     {showL7Protocol && (
                         <div className='toggle-container'> {/*style={{ paddingBottom: "10px" }} */}
-                            <label htmlFor='l7-protocol-toggle' className='toggle-label'>
+                            <FormCheckLabel htmlFor='l7-protocol-toggle' className='toggle-label'>
                                 Show L7 Protocol
-                            </label>
-                            <Toggle
+                            </FormCheckLabel>
+                            <Form.Check
+                                type='switch'
                                 id='l7-protocol-toggle'
                                 checked={showL7Protocol}
                                 onChange={(e) => dispatch(setShowL7Protocol(e.target.checked))}

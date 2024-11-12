@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setNicknameMapping, resetNicknameMapping, setIsNicknameChangeOpen } from './controlPanelSlice';
-import "react-toggle/style.css";
-import { Button, Form} from 'react-bootstrap';
+import { Button, Form } from 'react-bootstrap';
 
 export default function NicknameChange() {
     const hostData = useSelector((state) => state.graphView.hostGraphData);
