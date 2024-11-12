@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setNicknameMapping, resetNicknameMapping, setIsNicknameChangeOpen } from './controlPanelSlice';
 import { Button, Form } from 'react-bootstrap';
+import "./ControlPanel.css"
 
 export default function NicknameChange() {
     const hostData = useSelector((state) => state.graphView.hostGraphData);
@@ -95,7 +96,7 @@ export default function NicknameChange() {
 
             {/* Nickname Change 메뉴 아이템 (계층 구조로 보이도록 하되 너비는 줄어들지 않음) */}
             {isNicknameChangeOpen && (
-                <div style={{ marginBottom: "20px", width: "100%" }}>
+                <div className='submenu-container' style={{ width: "100%" }}>
                     {/* IP Address 선택 */}
                     <div style={{ marginBottom: "20px", width: "100%" }}>
                         <Form.Label><strong>IP Address:</strong></Form.Label>
@@ -149,7 +150,7 @@ export default function NicknameChange() {
                     </div>
 
                     {/* Reset All Nicknames 버튼 */}
-                    <div style={{ marginBottom: "20px", width: "100%" }}>
+                    <div style={{width: "100%" }}>
                         <Button onClick={handleResetAllNicknames} style={{ width: "100%" }} disabled={!isSimulationStable}>Reset All Nicknames</Button>
                     </div>
                 </div>
