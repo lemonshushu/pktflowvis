@@ -6,7 +6,6 @@ import {Button, Card, CloseButton, Col, Form, OverlayTrigger, Row, Tooltip} from
 import {useDispatch, useSelector} from 'react-redux';
 import {
     removeEntry,
-    setCurrentEntry,
     setEntryTitle,
     setFormSelections,
     setMetadata,
@@ -44,10 +43,10 @@ export default function TimelineEntry({ entryIndex }) {
         const ipB = metadata[ entryIndex ].hostB;
         const portA = metadata[ entryIndex ].portA;
         const portB = metadata[ entryIndex ].portB;
-        if (timelineDataShouldUpdate) {
+        if (timelineDataShouldUpdate && !formShouldReset) {
             setTimelineDataShouldUpdate(false);
             // Filter out data from `packets`
-            const data = packets.filter((packet) => {
+            let data = packets.filter((packet) => {
 
                 if (packet._source.layers.ip[ "ip.src" ] === ipA && packet._source.layers.ip[ "ip.dst" ] === ipB) {
                     if (packet._source.layers.tcp && packet._source.layers.tcp[ "tcp.srcport" ] === portA && packet._source.layers.tcp[ "tcp.dstport" ] === portB) {
@@ -72,20 +71,19 @@ export default function TimelineEntry({ entryIndex }) {
                 alert("No data found for the selected hosts and ports");
 
                 // Revert to previous metadata
-                dispatch(setMetadata(previousMetadata));
+                dispatch(setMetadata({data: previousMetadata, index: entryIndex}));
                 setFormShouldReset(true);
                 return;
             }
 
             // Sort data by time
-            data.sort((a, b) => a._source.layers.frame[ "frame.time_epoch" ] - b._source.layers.frame[ "frame.time_epoch" ]);
+            data = data.sort((a, b) => parseFloat(a._source.layers.frame[ "frame.time_epoch" ]) - parseFloat(b._source.layers.frame[ "frame.time_epoch" ]));
 
-            dispatch(setCurrentEntry(entryIndex));
-            dispatch(setTimelineData(data));
+            dispatch(setTimelineData({data, index: entryIndex}));
             setPropDelayShouldUpdate(true);
         }
 
-    }, [metadata, packets, dispatch, entryIndex, timelineDataShouldUpdate, previousMetadata]);
+    }, [metadata, packets, dispatch, entryIndex, timelineDataShouldUpdate, previousMetadata, formShouldReset]);
 
 
     /**
@@ -95,6 +93,8 @@ export default function TimelineEntry({ entryIndex }) {
         // Calculate propagation delay using RTT between TX and RX packets
         if (propDelayShouldUpdate) {
             const data = timelineData[ entryIndex ];
+            // Print `data`
+            console.log(data);
             const delays = [];
 
             // Determine local and remote IP addresses and ports
@@ -126,14 +126,9 @@ export default function TimelineEntry({ entryIndex }) {
             }
 
             for (let i = 0; i < data.length - 1; i++) {
-                const currentPacket = data[ i ];
-                const nextPacket = data[ i + 1 ];
-
-                const currentTime = parseFloat(currentPacket._source.layers.frame[ "frame.time_epoch" ]);
-                const nextTime = parseFloat(nextPacket._source.layers.frame[ "frame.time_epoch" ]);
-
+                const currentPacket = data[i];
+                const currentTime = parseFloat(currentPacket._source.layers.frame["frame.time_epoch"]);
                 const currentPacketInfo = getPacketInfo(currentPacket);
-                const nextPacketInfo = getPacketInfo(nextPacket);
 
                 // Determine if current packet is TX (from local IP and port to remote IP and port)
                 const isCurrentTX = currentPacketInfo.srcIP === localIP &&
@@ -141,20 +136,40 @@ export default function TimelineEntry({ entryIndex }) {
                     currentPacketInfo.srcPort === localPort &&
                     currentPacketInfo.dstPort === remotePort;
 
-                // Determine if next packet is RX (from remote IP and port to local IP and port)
-                const isNextRX = nextPacketInfo.srcIP === remoteIP &&
-                    nextPacketInfo.dstIP === localIP &&
-                    nextPacketInfo.srcPort === remotePort &&
-                    nextPacketInfo.dstPort === localPort;
+                if (isCurrentTX) {
+                    // Skip all consecutive TX packets
+                    let nextPacket;
+                    let nextTime;
+                    let isNextRX = false;
 
-                if (isCurrentTX && isNextRX) {
-                    const delta = nextTime - currentTime;
+                    let j = i + 1;
+                    while (j < data.length) {
+                        nextPacket = data[j];
+                        nextTime = parseFloat(nextPacket._source.layers.frame["frame.time_epoch"]);
+                        const nextPacketInfo = getPacketInfo(nextPacket);
 
-                    if (delta > 0) {
-                        delays.push(delta);
+                        // Check if next packet is RX
+                        isNextRX = nextPacketInfo.srcIP === remoteIP &&
+                            nextPacketInfo.dstIP === localIP &&
+                            nextPacketInfo.srcPort === remotePort &&
+                            nextPacketInfo.dstPort === localPort;
+
+                        if (isNextRX) {
+                            break; // Exit loop once RX packet is found
+                        }
+                        j++;
+                    }
+
+                    if (isNextRX) {
+                        const delta = nextTime - currentTime;
+                        if (delta > 0) {
+                            delays.push(delta);
+                        }
+                        i = j + 1; // Update i to skip processed packets
                     }
                 }
             }
+
 
             // If no valid delays are found, set a default propagation delay
             let avgDelay;
@@ -165,7 +180,7 @@ export default function TimelineEntry({ entryIndex }) {
                 avgDelay = 0.001; // Default to 1 millisecond if no delays are found
             }
 
-            dispatch(setPropDelay(avgDelay));
+            dispatch(setPropDelay({data: avgDelay, index: entryIndex}));
             setPropDelayShouldUpdate(false);
             setD3ShouldRender(true);
         }
@@ -458,36 +473,30 @@ export default function TimelineEntry({ entryIndex }) {
     useEffect(() => {
         if (formShouldReset) {
             const currentMeta = metadata[ entryIndex ];
-            dispatch(setCurrentEntry(entryIndex));
-            dispatch(setFormSelections({ hostA: currentMeta.hostA, portA: currentMeta.portA, hostB: currentMeta.hostB, portB: currentMeta.portB, radioASelected: currentMeta.localhost === "A" }));
+            dispatch(setFormSelections({data: { hostA: currentMeta.hostA, portA: currentMeta.portA, hostB: currentMeta.hostB, portB: currentMeta.portB, radioASelected: currentMeta.localhost === "A" }, index: entryIndex}));
             setFormShouldReset(false);
         }
     }, [dispatch, entryIndex, formShouldReset, metadata]);
 
     const onHostAChange = (e) => {
-        dispatch(setCurrentEntry(entryIndex));
-        dispatch(setFormSelections({ ...formSelection, hostA: e.target.value }));
+        dispatch(setFormSelections({data: { ...formSelection, hostA: e.target.value }, index: entryIndex}));
 
     };
 
     const onPortAChange = (e) => {
-        dispatch(setCurrentEntry(entryIndex));
-        dispatch(setFormSelections({ ...formSelection, portA: e.target.value }));
+        dispatch(setFormSelections({data: { ...formSelection, portA: e.target.value }, index: entryIndex}));
     };
 
     const onHostBChange = (e) => {
-        dispatch(setCurrentEntry(entryIndex));
-        dispatch(setFormSelections({ ...formSelection, hostB: e.target.value }));
+        dispatch(setFormSelections({data: { ...formSelection, hostB: e.target.value }, index: entryIndex}));
     };
 
     const onPortBChange = (e) => {
-        dispatch(setCurrentEntry(entryIndex));
-        dispatch(setFormSelections({ ...formSelection, portB: e.target.value }));
+        dispatch(setFormSelections({data: { ...formSelection, portB: e.target.value }, index: entryIndex}));
     };
 
     const onRadioChange = (e) => {
-        dispatch(setCurrentEntry(entryIndex));
-        dispatch(setFormSelections({ ...formSelection, radioASelected: e.target.value === "A" }));
+        dispatch(setFormSelections({data: { ...formSelection, radioASelected: e.target.value === "A" }, index: entryIndex}));
     };
 
     /**
@@ -495,8 +504,7 @@ export default function TimelineEntry({ entryIndex }) {
      */
     const onResetClick = () => {
         const currentMeta = metadata[ entryIndex ];
-        dispatch(setCurrentEntry(entryIndex));
-        dispatch(setFormSelections({ hostA: currentMeta.hostA, portA: currentMeta.portA, hostB: currentMeta.hostB, portB: currentMeta.portB, radioASelected: currentMeta.localhost === "A" }));
+        dispatch(setFormSelections({data: { hostA: currentMeta.hostA, portA: currentMeta.portA, hostB: currentMeta.hostB, portB: currentMeta.portB, radioASelected: currentMeta.localhost === "A" }, index: entryIndex}));
     };
 
     /**
@@ -513,14 +521,12 @@ export default function TimelineEntry({ entryIndex }) {
             return;
         }
         setPreviousMetadata(metadata[ entryIndex ]);
-        dispatch(setCurrentEntry(entryIndex));
-        dispatch(setMetadata({ hostA: formSelection.hostA, portA: formSelection.portA, hostB: formSelection.hostB, portB: formSelection.portB, localhost: formSelection.radioASelected ? "A" : "B" }));
+        dispatch(setMetadata({data: { hostA: formSelection.hostA, portA: formSelection.portA, hostB: formSelection.hostB, portB: formSelection.portB, localhost: formSelection.radioASelected ? "A" : "B" }, index: entryIndex}));
         setTimelineDataShouldUpdate(true);
     };
 
     const onTitleSave = () => {
-        dispatch(setCurrentEntry(entryIndex));
-        dispatch(setEntryTitle(titleText));
+        dispatch(setEntryTitle({data: titleText, index: entryIndex}));
         setTitleEditMode(false);
     };
 
