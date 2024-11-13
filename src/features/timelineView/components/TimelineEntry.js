@@ -278,14 +278,14 @@ export default function TimelineEntry({ entryIndex }) {
             .attr("x", -margin.left + 10)
             .attr("y", hostAY)
             .attr("dy", "0.35em")
-            .text(`Host A (${ipA})`)
+            .text(`${ipA}:${metadata[ entryIndex ].portA}`)
             .style("font-size", "12px");
 
         svgGroup.append("text")
             .attr("x", -margin.left + 10)
             .attr("y", hostBY)
             .attr("dy", "0.35em")
-            .text(`Host B (${ipB})`)
+            .text(`${ipB}:${metadata[ entryIndex ].portB}`)
             .style("font-size", "12px");
 
         // Define arrowhead marker
