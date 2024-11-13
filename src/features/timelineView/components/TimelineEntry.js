@@ -536,6 +536,7 @@ export default function TimelineEntry({ entryIndex }) {
         <Card className="text-center mb-3">
             <CloseButton className="align-self-end mt-3 me-3" onClick={() => {
                 dispatch(removeEntry(entryIndex));
+                setD3ShouldRender(true);
             }} />
             <Card.Body>
                 {titleEditMode ?
