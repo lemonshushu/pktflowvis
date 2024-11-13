@@ -197,7 +197,9 @@ export default function TimelineEntry({ entryIndex }) {
     useEffect(() => {
         if (!d3ShouldRender) return;
         setD3ShouldRender(false);
-        const propDelay = propDelays[ entryIndex ] * 1000; // Convert to milliseconds
+        const propDelay = propDelays[ entryIndex ];
+        // Print propd
+        console.log("propDelay: " + propDelay);
         // Render timeline from `timelineData`
         const data = timelineData[ entryIndex ];
         if (data.length === 0) {
