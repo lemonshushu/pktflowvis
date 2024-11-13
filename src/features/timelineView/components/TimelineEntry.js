@@ -195,27 +195,14 @@ export default function TimelineEntry({ entryIndex }) {
         // Get metadata and constants
         const ipA = metadata[ entryIndex ].hostA;
         const ipB = metadata[ entryIndex ].hostB;
-        const propDelay = metadata[ entryIndex ].propDelay;
+        const propDelay = metadata[ entryIndex ].propDelay * 1000 // Convert to milliseconds
         const localhost = metadata[ entryIndex ].localhost; // "A" or "B"
 
         // Extract times and define scales
         let times = data.map(d => parseFloat(d._source.layers.frame[ "frame.time_epoch" ]));
 
-        // Crop out blank time at the start and end
-        const timeThreshold = 1; // Time in seconds to consider as idle time
-        const activeTimes = times.filter((time, index) => {
-            if (index === 0) return true;
-            const delta = time - times[ index - 1 ];
-            return delta < timeThreshold;
-        });
-
-        // If no active times found, use original times
-        if (activeTimes.length === 0) {
-            activeTimes.push(times[ 0 ], times[ times.length - 1 ]);
-        }
-
-        const timeMin = d3.min(activeTimes);
-        const timeMax = d3.max(activeTimes);
+        const timeMin = d3.min(times);
+        const timeMax = d3.max(times);
 
         // Add padding to time domain
         const timePadding = (timeMax - timeMin) * 0.05; // 5% padding on each side
