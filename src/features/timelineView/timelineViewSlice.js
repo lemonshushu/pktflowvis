@@ -1,4 +1,4 @@
-import { createSlice } from '@reduxjs/toolkit';
+import {createSlice} from '@reduxjs/toolkit';
 
 export const timelineViewSlice = createSlice({
     name: 'timelineView',
@@ -17,11 +17,6 @@ export const timelineViewSlice = createSlice({
          * The current {hostA, portA, hostB, portB, localhost, propDelay} for each timeline entry
          */
         metadata: [],
-
-        /**
-         * Whether the metadata has been changed since the last time it was saved
-         */
-        isMetaNew: false,
 
         /**
          * D3 data for each timeline entry, according to `metadata`
@@ -43,6 +38,12 @@ export const timelineViewSlice = createSlice({
          * Titles for each timeline entry
          */
         entryTitles: [],
+
+        /**
+         * Propagation delays for each timeline entry
+         */
+        propDelays: [],
+
     },
     reducers: {
         /**
@@ -67,6 +68,7 @@ export const timelineViewSlice = createSlice({
             state.timelineData.push([]);
             state.formSelections.push(formSelections);
             state.entryTitles.push("");
+            state.propDelays.push(null);
         },
 
         /**
@@ -86,6 +88,7 @@ export const timelineViewSlice = createSlice({
             state.timelineData.splice(action.payload, 1);
             state.formSelections.splice(action.payload, 1);
             state.entryTitles.splice(action.payload, 1);
+            state.propDelays.splice(action.payload, 1);
         },
 
         /**
@@ -110,14 +113,6 @@ export const timelineViewSlice = createSlice({
          */
         setMetadata: (state, action) => {
             state.metadata[ state.currentEntry ] = action.payload;
-            state.isMetaNew = true;
-        },
-
-        /**
-         * Set whether the metadata has been changed since the last time it was saved
-         */
-        setIsMetaNew: (state, action) => {
-            state.isMetaNew = action.payload;
         },
 
         /**
@@ -133,11 +128,29 @@ export const timelineViewSlice = createSlice({
          */
         setEntryTitle: (state, action) => {
             state.entryTitles[ state.currentEntry ] = action.payload;
-        }
+        },
+
+        /**
+         * Set the propagation delay for the current entry
+         * - action.payload: propagation delay
+         */
+        setPropDelay: (state, action) => {
+            state.propDelays[ state.currentEntry ] = action.payload;
+        },
     },
 });
 
-export const { setCurrentEntry, addEntry, toggleAlignTime, removeEntry, setFormOpts, setFormSelections, 
-    setMetadata, setTimelineData, setIsMetaNew, setEntryTitle } = timelineViewSlice.actions;
+export const {
+    setCurrentEntry,
+    addEntry,
+    toggleAlignTime,
+    removeEntry,
+    setFormOpts,
+    setFormSelections,
+    setMetadata,
+    setTimelineData,
+    setEntryTitle,
+    setPropDelay,
+} = timelineViewSlice.actions;
 
 export default timelineViewSlice.reducer;

@@ -1,10 +1,18 @@
-import { faFloppyDisk, faPencil, faX } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {faFloppyDisk, faPencil, faX} from '@fortawesome/free-solid-svg-icons';
+import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
 import * as d3 from "d3";
-import { useEffect, useRef, useState } from 'react';
-import { Button, Card, CloseButton, Col, Form, OverlayTrigger, Row, Tooltip } from "react-bootstrap";
-import { useDispatch, useSelector } from 'react-redux';
-import { removeEntry, setCurrentEntry, setEntryTitle, setFormSelections, setIsMetaNew, setMetadata, setTimelineData } from '../timelineViewSlice';
+import {useEffect, useRef, useState} from 'react';
+import {Button, Card, CloseButton, Col, Form, OverlayTrigger, Row, Tooltip} from "react-bootstrap";
+import {useDispatch, useSelector} from 'react-redux';
+import {
+    removeEntry,
+    setCurrentEntry,
+    setEntryTitle,
+    setFormSelections,
+    setMetadata,
+    setPropDelay,
+    setTimelineData,
+} from '../timelineViewSlice';
 import "./TimelineEntry.css";
 
 export default function TimelineEntry({ entryIndex }) {
@@ -16,11 +24,16 @@ export default function TimelineEntry({ entryIndex }) {
     const packets = useSelector((state) => state.data.packets);
     const timelineData = useSelector((state) => state.timelineView.timelineData);
     const svgRef = useRef(null);
-    const isMetaNew = useSelector((state) => state.timelineView.isMetaNew);
     const entryTitles = useSelector((state) => state.timelineView.entryTitles);
+    const propDelays = useSelector((state) => state.timelineView.propDelays);
 
     const [ titleText, setTitleText ] = useState(entryTitles[ entryIndex ]);
     const [ titleEditMode, setTitleEditMode ] = useState(false);
+    const [previousMetadata, setPreviousMetadata] = useState(null);
+    const [formShouldReset, setFormShouldReset] = useState(false);
+    const [timelineDataShouldUpdate, setTimelineDataShouldUpdate] = useState(false);
+    const [propDelayShouldUpdate, setPropDelayShouldUpdate] = useState(false);
+    const [d3ShouldRender, setD3ShouldRender] = useState(false);
 
 
     /**
@@ -31,8 +44,8 @@ export default function TimelineEntry({ entryIndex }) {
         const ipB = metadata[ entryIndex ].hostB;
         const portA = metadata[ entryIndex ].portA;
         const portB = metadata[ entryIndex ].portB;
-        if (isMetaNew) {
-            dispatch(setIsMetaNew(false));
+        if (timelineDataShouldUpdate) {
+            setTimelineDataShouldUpdate(false);
             // Filter out data from `packets`
             const data = packets.filter((packet) => {
 
@@ -50,7 +63,6 @@ export default function TimelineEntry({ entryIndex }) {
                         return true;
                     }
                 }
-
                 return false;
             }
             );
@@ -58,6 +70,10 @@ export default function TimelineEntry({ entryIndex }) {
             // If data is empty, return (i.e., No traffic between the selected hosts and ports)
             if (data.length === 0) {
                 alert("No data found for the selected hosts and ports");
+
+                // Revert to previous metadata
+                dispatch(setMetadata(previousMetadata));
+                setFormShouldReset(true);
                 return;
             }
 
@@ -66,9 +82,10 @@ export default function TimelineEntry({ entryIndex }) {
 
             dispatch(setCurrentEntry(entryIndex));
             dispatch(setTimelineData(data));
+            setPropDelayShouldUpdate(true);
         }
 
-    }, [ metadata, packets, dispatch, entryIndex, isMetaNew ]);
+    }, [metadata, packets, dispatch, entryIndex, timelineDataShouldUpdate, previousMetadata]);
 
 
     /**
@@ -76,7 +93,7 @@ export default function TimelineEntry({ entryIndex }) {
     */
     useEffect(() => {
         // Calculate propagation delay using RTT between TX and RX packets
-        if (timelineData[ entryIndex ].length > 0 && !metadata[ entryIndex ].propDelay) {
+        if (propDelayShouldUpdate) {
             const data = timelineData[ entryIndex ];
             const delays = [];
 
@@ -148,9 +165,11 @@ export default function TimelineEntry({ entryIndex }) {
                 avgDelay = 0.001; // Default to 1 millisecond if no delays are found
             }
 
-            dispatch(setMetadata({ ...metadata[ entryIndex ], propDelay: avgDelay }));
+            dispatch(setPropDelay(avgDelay));
+            setPropDelayShouldUpdate(false);
+            setD3ShouldRender(true);
         }
-    }, [ timelineData, entryIndex, dispatch, metadata ]);
+    }, [ timelineData, entryIndex, dispatch, metadata, propDelayShouldUpdate ]);
 
 
 
@@ -161,10 +180,9 @@ export default function TimelineEntry({ entryIndex }) {
      * D3 visualization of the timeline
      */
     useEffect(() => {
-        // Only proceed if `propDelay` is available in `metadata`
-        if (!metadata[ entryIndex ].propDelay) {
-            return;
-        }
+        if (!d3ShouldRender) return;
+        setD3ShouldRender(false);
+        const propDelay = propDelays[ entryIndex ] * 1000; // Convert to milliseconds
         // Render timeline from `timelineData`
         const data = timelineData[ entryIndex ];
         if (data.length === 0) {
@@ -195,7 +213,6 @@ export default function TimelineEntry({ entryIndex }) {
         // Get metadata and constants
         const ipA = metadata[ entryIndex ].hostA;
         const ipB = metadata[ entryIndex ].hostB;
-        const propDelay = metadata[ entryIndex ].propDelay * 1000 // Convert to milliseconds
         const localhost = metadata[ entryIndex ].localhost; // "A" or "B"
 
         // Extract times and define scales
@@ -436,8 +453,16 @@ export default function TimelineEntry({ entryIndex }) {
 
 
 
-    }, [ metadata, entryIndex, timelineData, dispatch ]);
+    }, [metadata, entryIndex, timelineData, dispatch, d3ShouldRender, propDelays]);
 
+    useEffect(() => {
+        if (formShouldReset) {
+            const currentMeta = metadata[ entryIndex ];
+            dispatch(setCurrentEntry(entryIndex));
+            dispatch(setFormSelections({ hostA: currentMeta.hostA, portA: currentMeta.portA, hostB: currentMeta.hostB, portB: currentMeta.portB, radioASelected: currentMeta.localhost === "A" }));
+            setFormShouldReset(false);
+        }
+    }, [dispatch, entryIndex, formShouldReset, metadata]);
 
     const onHostAChange = (e) => {
         dispatch(setCurrentEntry(entryIndex));
@@ -487,9 +512,10 @@ export default function TimelineEntry({ entryIndex }) {
             alert("Both hosts and ports cannot be the same");
             return;
         }
+        setPreviousMetadata(metadata[ entryIndex ]);
         dispatch(setCurrentEntry(entryIndex));
         dispatch(setMetadata({ hostA: formSelection.hostA, portA: formSelection.portA, hostB: formSelection.hostB, portB: formSelection.portB, localhost: formSelection.radioASelected ? "A" : "B" }));
-
+        setTimelineDataShouldUpdate(true);
     };
 
     const onTitleSave = () => {
