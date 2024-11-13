@@ -16,7 +16,7 @@ export default function ControlPanel(props) {
 
     return (
         packets && (
-            <div style={{ position: 'absolute', top: 70, left: 40, width: "300px", padding: "20px", borderRadius: "15px", border: "1px solid #ccc", backgroundColor: "#fff", boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.1)" }}>
+            <div className="control-panel" style={{ position: 'absolute', top: "5%", left: 40, width: "300px", padding: "20px", borderRadius: "15px", border: "1px solid #ccc", backgroundColor: "#fff", boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.1)" }}>
                 {/* Port 분리 토글 버튼 */}
                 <div className = "toggle-container">
                     <FormCheckLabel htmlFor='split-toggle' className='toggle-label'>Split Hosts by Ports</FormCheckLabel>

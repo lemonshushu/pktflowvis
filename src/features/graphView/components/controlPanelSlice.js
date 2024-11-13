@@ -1,4 +1,4 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice, current } from '@reduxjs/toolkit';
 
 export const controlPanelSlice = createSlice({
     name: 'controlPanel',
@@ -9,8 +9,10 @@ export const controlPanelSlice = createSlice({
         isShowProtocolsOpen: false,
         showL4Protocol: false,
         L4Protocols : [],
+        selectedL4Protocols: {},
         showL7Protocol: false,
         L7Protocols : [],
+        selectedL7Protocols: {}
     },
     reducers: {
         setNicknameMapping: (state, action) => {
@@ -51,10 +53,24 @@ export const controlPanelSlice = createSlice({
         addProtocols: (state, action) => {
             const { l4Protocols, l7Protocols } = action.payload;
             state.L4Protocols = [...new Set([...state.L4Protocols, ...l4Protocols])];
+            state.L4Protocols.forEach((protocol) => {state.selectedL4Protocols[protocol] = false;});
             state.L7Protocols = [...new Set([...state.L7Protocols, ...l7Protocols])];
+            state.L7Protocols.forEach((protocol) => {state.selectedL7Protocols[protocol] = false;});
             console.log(state.L4Protocols);
+            console.log(current(state.selectedL4Protocols));
             console.log(state.L7Protocols);
+            console.log(current(state.selectedL7Protocols));
         },
+        // 프로토콜 선택 상태 토글 리듀서
+        toggleL4Protocol: (state, action) => {
+            const protocol = action.payload;
+            state.selectedL4Protocols[protocol] = !state.selectedL4Protocols[protocol];
+        },
+        toggleL7Protocol: (state, action) => {
+            const protocol = action.payload;
+            state.selectedL7Protocols[protocol] = !state.selectedL7Protocols[protocol];
+        },
+
     },
 });
 
@@ -66,7 +82,10 @@ export const {
                 setIsShowProtocolsOpen, 
                 setShowL4Protocol,
                 setShowL7Protocol,
-                addProtocols
+                addProtocols,
+                toggleL4Protocol,
+                toggleL7Protocol,
+
             } = controlPanelSlice.actions;
 
 export default controlPanelSlice.reducer;
