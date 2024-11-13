@@ -8,7 +8,9 @@ export const controlPanelSlice = createSlice({
         isNicknameChangeOpen: false,
         isShowProtocolsOpen: false,
         showL4Protocol: false,
-        showL7Protocol: false
+        L4Protocols : [],
+        showL7Protocol: false,
+        L7Protocols : [],
     },
     reducers: {
         setNicknameMapping: (state, action) => {
@@ -45,7 +47,14 @@ export const controlPanelSlice = createSlice({
         },
         setShowL7Protocol: (state, action) => {
             state.showL7Protocol = action.payload;
-        }
+        },
+        addProtocols: (state, action) => {
+            const { l4Protocols, l7Protocols } = action.payload;
+            state.L4Protocols = [...new Set([...state.L4Protocols, ...l4Protocols])];
+            state.L7Protocols = [...new Set([...state.L7Protocols, ...l7Protocols])];
+            console.log(state.L4Protocols);
+            console.log(state.L7Protocols);
+        },
     },
 });
 
@@ -55,8 +64,9 @@ export const {
                 setIsSimulationStable, 
                 setIsNicknameChangeOpen, 
                 setIsShowProtocolsOpen, 
-                setShowL4Protocol, 
-                setShowL7Protocol
+                setShowL4Protocol,
+                setShowL7Protocol,
+                addProtocols
             } = controlPanelSlice.actions;
 
 export default controlPanelSlice.reducer;
