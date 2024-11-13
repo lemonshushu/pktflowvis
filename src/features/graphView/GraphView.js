@@ -5,7 +5,6 @@ import React, { useEffect, useRef } from 'react';
 import { Button } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
 import { Navigate } from 'react-router-dom';
-import "react-toggle/style.css";
 import { setCurrentView } from '../data/dataSlice';
 import { addEntry, setFormOpts } from '../timelineView/timelineViewSlice';
 import ControlPanel from './components/ControlPanel';
