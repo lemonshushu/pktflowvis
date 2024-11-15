@@ -1,17 +1,19 @@
-import { faChevronRight } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import * as d3 from 'd3';
 import React, { useEffect, useRef } from 'react';
 import { Button } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
 import { Navigate } from 'react-router-dom';
+import ControlPanel from './components/ControlPanel';
+
 import { setCurrentView } from '../data/dataSlice';
 import { addEntry, setFormOpts } from '../timelineView/timelineViewSlice';
-import ControlPanel from './components/ControlPanel';
-import { setIsSimulationStable } from './components/controlPanelSlice';
-import './GraphView.css';
+import { setIsSimulationStable, addProtocols } from './components/controlPanelSlice';
 import { setHostGraphData, setPortGraphData } from './graphViewSlice';
 
+import { faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import './GraphView.css';
+import "react-toggle/style.css";
 
 export default function GraphView() {
     const packets = useSelector((state) => state.data.packets);
@@ -22,8 +24,13 @@ export default function GraphView() {
     const mode = useSelector((state) => state.graphView.mode);
     const currentView = useSelector((state) => state.data.currentView);
     const isSimulationStable = useSelector((state) => state.controlPanel.isSimulationStable);
+    const isShowProtocolsOpen = useSelector((state) => state.controlPanel.isShowProtocolsOpen);
+    const selectedL4Protocols = useSelector((state) => state.controlPanel.selectedL4Protocols);
+    const selectedL7Protocols = useSelector((state) => state.controlPanel.selectedL7Protocols);
 
     const simulationRef = useRef(null);
+    const linkRef = useRef(null);
+    const nodeRef = useRef(null);
     const nodesRef = useRef([]);
     const svgRef = useRef(null); // SVG 요소에 대한 참조를 저장할 ref
     const zoomRef = useRef(null); // zoom behavior에 대한 참조를 저장할 ref
@@ -72,93 +79,157 @@ export default function GraphView() {
         // Initialize port data with nodes and links
         const data = { nodes: [], links: [] };
         const timelineViewFormOpts = [ { ip_addr: "", ports: [ "" ] } ];
+        const allL4Protocols = new Set();
+        const allL7Protocols = new Set();
 
         packets.forEach((packet) => {
-            const src_ip = packet._source.layers.ip[ 'ip.src_host' ];
-            const dst_ip = packet._source.layers.ip[ 'ip.dst_host' ];
-            const src_port = packet._source.layers.tcp ? packet._source.layers.tcp[ 'tcp.srcport' ] : packet._source.layers.udp[ 'udp.srcport' ];
-            const dst_port = packet._source.layers.tcp ? packet._source.layers.tcp[ 'tcp.dstport' ] : packet._source.layers.udp[ 'udp.dstport' ];
-            const frame_size = Number(packet._source.layers.frame[ 'frame.len' ]);
+            const src_ip = packet._source.layers.ip['ip.src_host'];
+            const dst_ip = packet._source.layers.ip['ip.dst_host'];
+            const src_port = packet._source.layers.tcp
+                ? packet._source.layers.tcp['tcp.srcport']
+                : packet._source.layers.udp['udp.srcport'];
+            const dst_port = packet._source.layers.tcp
+                ? packet._source.layers.tcp['tcp.dstport']
+                : packet._source.layers.udp['udp.dstport'];
+            const frame_size = Number(packet._source.layers.frame['frame.len']);
             const l4_proto = packet._source.layers.tcp ? 'TCP' : 'UDP';
             const layers = Object.keys(packet._source.layers);
-            const l7_proto = layers[ 4 ] === "tcp.segments" ? layers[ 5 ].toUpperCase()
-                : (layers[ 4 ] === undefined ? undefined : layers[ 4 ].toUpperCase());
+            let temp_l7_proto = layers[4] === 'tcp.segments' ? layers[5]?.toUpperCase() : layers[4]?.toUpperCase();
+            const l7_proto = temp_l7_proto === undefined ? "None" : temp_l7_proto;
 
+            allL4Protocols.add(l4_proto);
+            allL7Protocols.add(l7_proto);
+    
             const src_id = `${src_ip}:${src_port}`;
             const dst_id = `${dst_ip}:${dst_port}`;
-
+    
             // Add source node
-            let src_node = data.nodes.find(node => node.id === src_id);
+            let src_node = data.nodes.find((node) => node.id === src_id);
             if (!src_node) {
                 src_node = {
                     id: src_id,
                     ip_addr: src_ip,
                     port: src_port,
                     traffic_volume: frame_size,
-                    l4_proto: l4_proto,
-                    l7_proto: l7_proto
+                    l4_proto: new Set([l4_proto]),
+                    l7_proto: new Set([l7_proto]),
                 };
                 data.nodes.push(src_node);
 
-                if (!timelineViewFormOpts.find(port => port.ip_addr === src_ip)) {
-                    timelineViewFormOpts.push({ ip_addr: src_ip, ports: [ "", src_port ] });
+                if (!timelineViewFormOpts.find((port) => port.ip_addr === src_ip)) {
+                    timelineViewFormOpts.push({ ip_addr: src_ip, ports: ['', src_port] });
                 } else {
-                    timelineViewFormOpts.find(port => port.ip_addr === src_ip).ports.push(src_port);
+                    timelineViewFormOpts
+                        .find((port) => port.ip_addr === src_ip)
+                        .ports.push(src_port);
                 }
             } else {
                 src_node.traffic_volume += frame_size;
-                if (src_node.l4_proto !== l4_proto) src_node.l4_proto = 'TCP/UDP';
-                if (src_node.l7_proto !== l7_proto) {
-                    if (src_node.l7_proto === undefined) {
-                        src_node.l7_proto = l7_proto;
-                    } else if (l7_proto !== undefined) {
-                        src_node.l7_proto = "Multiple";
+                src_node.l4_proto.add(l4_proto);
+                
+                // l7_proto 처리
+                if (l7_proto === 'None') {
+                    // 이미 다른 프로토콜이 없으면 'None'을 추가
+                    if (src_node.l7_proto.size === 0) {
+                        src_node.l7_proto.add('None');
                     }
+                } else {
+                    if (src_node.l7_proto.has('None')) {
+                        src_node.l7_proto.delete('None');
+                    }
+                    src_node.l7_proto.add(l7_proto);
                 }
             }
 
             // Add destination node
-            let dst_node = data.nodes.find(node => node.id === dst_id);
+            let dst_node = data.nodes.find((node) => node.id === dst_id);
             if (!dst_node) {
                 dst_node = {
                     id: dst_id,
                     ip_addr: dst_ip,
                     port: dst_port,
                     traffic_volume: frame_size,
-                    l4_proto: l4_proto,
-                    l7_proto: l7_proto
+                    l4_proto: new Set([l4_proto]),
+                    l7_proto: new Set([l7_proto]),
                 };
                 data.nodes.push(dst_node);
 
-                if (!timelineViewFormOpts.find(port => port.ip_addr === dst_ip)) {
-                    timelineViewFormOpts.push({ ip_addr: dst_ip, ports: [ "", dst_port ] });
+                if (!timelineViewFormOpts.find((port) => port.ip_addr === dst_ip)) {
+                    timelineViewFormOpts.push({ ip_addr: dst_ip, ports: ['', dst_port] });
                 } else {
-                    timelineViewFormOpts.find(port => port.ip_addr === dst_ip).ports.push(dst_port);
+                    timelineViewFormOpts
+                        .find((port) => port.ip_addr === dst_ip)
+                        .ports.push(dst_port);
                 }
             } else {
                 dst_node.traffic_volume += frame_size;
-                if (dst_node.l4_proto !== l4_proto) dst_node.l4_proto = 'TCP/UDP';
-                if (dst_node.l7_proto !== l7_proto) {
-                    if (dst_node.l7_proto === undefined) {
-                        dst_node.l7_proto = l7_proto;
-                    } else if (l7_proto !== undefined) {
-                        dst_node.l7_proto = "Multiple";
+                dst_node.l4_proto.add(l4_proto);
+                
+                // l7_proto 처리
+                if (l7_proto === 'None') {
+                    if (dst_node.l7_proto.size === 0) {
+                        dst_node.l7_proto.add('None');
                     }
+                } else {
+                    if (dst_node.l7_proto.has('None')) {
+                        dst_node.l7_proto.delete('None');
+                    }
+                    dst_node.l7_proto.add(l7_proto);
                 }
             }
-
+    
             // Add link
-            if (!data.links.find(link => link.source === src_id && link.target === dst_id)) {
-                data.links.push({
+            let link = data.links.find(
+                (link) => link.source === src_id && link.target === dst_id
+            );
+    
+            if (!link) {
+                link = {
                     source: src_id,
                     target: dst_id,
                     src_ip: src_ip,
                     src_port: src_port,
                     dst_ip: dst_ip,
-                    dst_port: dst_port
-                });
+                    dst_port: dst_port,
+                    l4_proto: new Set([l4_proto]),
+                    l7_proto: new Set([l7_proto]),
+                };
+                data.links.push(link);
+            } else {
+                link.l4_proto.add(l4_proto);
+                // Handle L7 protocol 'None' case
+                if (l7_proto === 'None') {
+                    if (link.l7_proto.size === 0) {
+                        link.l7_proto.add('None');
+                    }
+                } else {
+                    if (link.l7_proto.has('None')) {
+                        link.l7_proto.delete('None');
+                    }
+                    link.l7_proto.add(l7_proto);
+                }
             }
         });
+
+        // Comparator function to sort protocols with 'None' at the end
+        const protocolComparator = (a, b) => {
+            if (a === 'None') return 1;
+            if (b === 'None') return -1;
+            return a.localeCompare(b);
+        };
+
+        // Convert Sets to Arrays before storing in state
+        data.nodes.forEach((node) => {
+            node.l4_proto = Array.from(node.l4_proto);
+            node.l7_proto = Array.from(node.l7_proto);
+        });
+
+         // Convert Sets to Arrays before storing
+        data.links.forEach((link) => {
+            link.l4_proto = Array.from(link.l4_proto);
+            link.l7_proto = Array.from(link.l7_proto);
+        });
+        console.log(data.links);
 
         // Sort ports in AvailableHostPorts in ascending order
         timelineViewFormOpts.forEach(port => port.ports.sort((a, b) => a - b));
@@ -168,7 +239,11 @@ export default function GraphView() {
 
 
         dispatch(setFormOpts(timelineViewFormOpts));
-
+        dispatch(addProtocols({
+            l4Protocols: Array.from(allL4Protocols).sort(protocolComparator),
+            l7Protocols: Array.from(allL7Protocols).sort(protocolComparator),
+        }));
+        console.log(data);
         return data;
     };
 
@@ -308,6 +383,7 @@ export default function GraphView() {
                 .selectAll("line")
                 .data(links)
                 .join("line")
+                .attr('opacity', d=>getOpacity(d.l4_proto, d.l7_proto))
                 .attr("stroke-width", d => Math.sqrt(d.value))
                 .attr("marker-end", "url(#arrowhead)")
                 // Highlight the link with black stroke on hover && make it thicker
@@ -326,12 +402,15 @@ export default function GraphView() {
                     dispatch(setCurrentView('timeline'));
                 });
 
+            linkRef.current = link;
+            
             // Add nodes
             const node = container.append("g")
                 // Removed unnecessary white strokes
                 .selectAll("circle")
                 .data(nodes)
                 .join("circle")
+                .attr('opacity', d => getOpacity(d.l4_proto, d.l7_proto))
                 .attr("r", d => sizeScale(d.traffic_volume))
                 .attr("fill", d => colorScale(d.ip_addr))
                 // .on("dblclick", resetNodePosition)
@@ -341,6 +420,8 @@ export default function GraphView() {
                     dispatch(setCurrentView('timeline'));
                     d3.selectAll(".tooltip").remove();
                 });
+            
+            nodeRef.current = node;
 
             // Add tooltips
             const tooltip = d3.select("body").append("div")
@@ -379,6 +460,7 @@ export default function GraphView() {
                 .data(nodes)
                 .join("text")
                 .text(d => getNicknameLabel(d, mode))
+                // .attr('opacity', d=> getOpacity(d.l4_proto, d.l7_proto))
                 .attr("font-size", "10px")
                 .attr("fill", "#555")
                 .attr("dy", "-1em")
@@ -498,6 +580,30 @@ export default function GraphView() {
             });
     }, [ nicknameMapping, mode ]);
 
+    useEffect(() => {
+        if (nodeRef.current && linkRef.current) {
+            if (!isShowProtocolsOpen) {
+                nodeRef.current.attr('opacity', 1);
+                linkRef.current.attr('opacity', 1);
+            } else {
+                nodeRef.current.attr('opacity', d => getOpacity(d.l4_proto, d.l7_proto));
+                linkRef.current.attr('opacity', d => getOpacity(d.l4_proto, d.l7_proto));
+            }
+        }
+    }, [isShowProtocolsOpen, selectedL4Protocols, selectedL7Protocols]);
+
+    const getOpacity = (l4_proto, l7_proto) => {
+        if (isShowProtocolsOpen && mode === 'port') {
+            let isSelected = false;
+            // console.log(l7_proto);
+            l4_proto.forEach((protocol) => {isSelected = isSelected || selectedL4Protocols[protocol];});
+            l7_proto.forEach((protocol) => {isSelected = isSelected || selectedL7Protocols[protocol];});
+            return isSelected ? 1 : 0.1;
+        } else {
+            return 1;
+        }
+    }
+
     const getNicknameLabel = (node, mode) => {
         if (mode === 'host') {
             return nicknameMapping[ node.ip_addr ] || node.ip_addr;
@@ -512,7 +618,23 @@ export default function GraphView() {
             return `${nicknameMapping[ node.ip_addr ] ? `${nicknameMapping[ node.ip_addr ]}<br>` : ''}IP: ${node.ip_addr}<br>Traffic Volume: ${node.traffic_volume}`;
         } else {
             const key = `${node.ip_addr}:${node.port}`;
-            return `${nicknameMapping[ key ] ? `${nicknameMapping[ key ]}<br>` : ''}IP: ${node.ip_addr}<br>Port: ${node.port}<br>Traffic Volume: ${node.traffic_volume}<br>L4 Protocol: ${node.l4_proto}<br>L7 Protocol: ${node.l7_proto}`;
+            
+            // L7 프로토콜 처리
+            let l7_proto_display;
+            if (Array.isArray(node.l7_proto)) {
+                if (node.l7_proto.length > 1) {
+                    // 'None'을 제외한 프로토콜 리스트 생성
+                    l7_proto_display = node.l7_proto.filter((proto) => proto !== 'None');
+                } else {
+                    l7_proto_display = node.l7_proto;
+                }
+                // 배열을 문자열로 변환
+                l7_proto_display = l7_proto_display.join(', ');
+            } else {
+                l7_proto_display = node.l7_proto;
+            }
+
+            return `${nicknameMapping[ key ] ? `${nicknameMapping[ key ]}<br>` : ''}IP: ${node.ip_addr}<br>Port: ${node.port}<br>Traffic Volume: ${node.traffic_volume}<br>L4 Protocol: ${node.l4_proto.join(", ")}<br>L7 Protocol: ${l7_proto_display}`;
         }
     };
 
