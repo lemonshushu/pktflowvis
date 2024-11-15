@@ -41,6 +41,7 @@ export default function GraphView() {
     const showL7Protocol = useSelector((state) => state.controlPanel.showL7Protocol);
     const selectedL4Protocols = useSelector((state) => state.controlPanel.selectedL4Protocols);
     const selectedL7Protocols = useSelector((state) => state.controlPanel.selectedL7Protocols);
+    const filteringMode = useSelector((state) => state.controlPanel.filteringMode);
 
     const simulationRef = useRef(null);
     const linkRef = useRef(null);
@@ -614,7 +615,7 @@ export default function GraphView() {
                 labelsRef.current.attr('fill-opacity', d => getOpacity(d.l4_proto, d.l7_proto));
             }
         }
-    }, [isShowProtocolsOpen, selectedL4Protocols, selectedL7Protocols]);
+    }, [isShowProtocolsOpen, selectedL4Protocols, selectedL7Protocols, filteringMode]);
 
     const showCustomContextMenu = (x, y, nodeData) => {
         d3.select(".custom-context-menu").remove();
@@ -672,28 +673,16 @@ export default function GraphView() {
                 });
         }
     }
-    
-    // const getL4MenuText = (l4_proto) => {
-    //     let isSelected = false;
-    //     l4_proto.forEach((protocol) => {isSelected = isSelected || selectedL4Protocols[protocol];});
-    //     return isSelected ? "Not Choosing L4 Protocol of this Host as Filter" 
-    //                       : "Choosing L4 Protocol of this Host as Filter"
-    // }
-
-    // const getL7MenuText = (l7_proto) => {
-    //     let isSelected = false;
-    //     l7_proto.forEach((protocol) => {isSelected = isSelected || selectedL4Protocols[protocol];});
-    //     return isSelected ? "Not Choosing L7 Protocol of this Host as Filter" 
-    //                       : "Choosing L7 Protocol of this Host as Filter"
-    // }
 
     const getOpacity = (l4_proto, l7_proto) => {
         if (isShowProtocolsOpen && mode === 'port') {
-            let isSelected = false;
+            let isL4Selected = false;
+            let isL7Selected = false;
             // console.log(l7_proto);
-            l4_proto.forEach((protocol) => {isSelected = isSelected || selectedL4Protocols[protocol];});
-            l7_proto.forEach((protocol) => {isSelected = isSelected || selectedL7Protocols[protocol];});
-            return isSelected ? 1 : 0.1;
+            l4_proto.forEach((protocol) => {isL4Selected = isL4Selected || selectedL4Protocols[protocol];});
+            l7_proto.forEach((protocol) => {isL7Selected = isL7Selected || selectedL7Protocols[protocol];});
+
+            return (filteringMode === "or" ? isL4Selected || isL7Selected : isL4Selected && isL7Selected) ? 1 : 0.1;
         } else {
             return 1;
         }

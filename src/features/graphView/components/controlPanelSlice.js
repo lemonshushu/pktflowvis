@@ -14,7 +14,8 @@ export const controlPanelSlice = createSlice({
         selectedL4Protocols: {},
         showL7Protocol: false,
         L7Protocols : [],
-        selectedL7Protocols: {}
+        selectedL7Protocols: {},
+        filteringMode: "or"
     },
     reducers: {
         setSelectedIP: (state, action) => {
@@ -78,7 +79,10 @@ export const controlPanelSlice = createSlice({
             const protocol = action.payload;
             state.selectedL7Protocols[protocol] = !state.selectedL7Protocols[protocol];
         },
-
+        setFilteringMode: (state, action) => {
+            console.log(action.payload);
+            state.filteringMode = action.payload;
+        }
     },
 });
 
@@ -95,7 +99,7 @@ export const {
                 addProtocols,
                 toggleL4Protocol,
                 toggleL7Protocol,
-
+                setFilteringMode
             } = controlPanelSlice.actions;
 
 export default controlPanelSlice.reducer;
