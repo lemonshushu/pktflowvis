@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setIsShowProtocolsOpen, setShowL4Protocol, setShowL7Protocol, toggleL4Protocol, toggleL7Protocol, setFilteringMode } from './controlPanelSlice';
 import "./ControlPanel.css"
@@ -21,9 +21,9 @@ export default function ProtocolFilter() {
     const selectedL4Protocols = useSelector((state) => state.controlPanel.selectedL4Protocols);
     const selectedL7Protocols = useSelector((state) => state.controlPanel.selectedL7Protocols);
     const filteringMode = useSelector((state) => state.controlPanel.filteringMode);
+
     const dispatch = useDispatch(); 
 
-    const [value, setValue] = useState(1);
 
   const handleChange = (val) => {dispatch(setFilteringMode(val))};
 
