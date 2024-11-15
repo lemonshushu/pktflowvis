@@ -1,13 +1,8 @@
-import { createSlice } from '@reduxjs/toolkit';
+import {createSlice} from '@reduxjs/toolkit';
 
 export const timelineViewSlice = createSlice({
     name: 'timelineView',
     initialState: {
-        /**
-         * Index of the entry being currently operated on
-         */
-        currentEntry: null,
-
         /**
          * Whether to align the time of multiple timeline entries
          */
@@ -17,11 +12,6 @@ export const timelineViewSlice = createSlice({
          * The current {hostA, portA, hostB, portB, localhost, propDelay} for each timeline entry
          */
         metadata: [],
-
-        /**
-         * Whether the metadata has been changed since the last time it was saved
-         */
-        isMetaNew: false,
 
         /**
          * D3 data for each timeline entry, according to `metadata`
@@ -43,15 +33,14 @@ export const timelineViewSlice = createSlice({
          * Titles for each timeline entry
          */
         entryTitles: [],
+
+        /**
+         * Propagation delays for each timeline entry
+         */
+        propDelays: [],
+
     },
     reducers: {
-        /**
-         * Set the current entry index (for the purpose of operating on it) \
-         * - action.payload : index of the entry
-         */
-        setCurrentEntry: (state, action) => {
-            state.currentEntry = action.payload;
-        },
 
         /**
          * Add a new timeline entry \
@@ -67,6 +56,7 @@ export const timelineViewSlice = createSlice({
             state.timelineData.push([]);
             state.formSelections.push(formSelections);
             state.entryTitles.push("");
+            state.propDelays.push(null);
         },
 
         /**
@@ -86,6 +76,7 @@ export const timelineViewSlice = createSlice({
             state.timelineData.splice(action.payload, 1);
             state.formSelections.splice(action.payload, 1);
             state.entryTitles.splice(action.payload, 1);
+            state.propDelays.splice(action.payload, 1);
         },
 
         /**
@@ -98,46 +89,58 @@ export const timelineViewSlice = createSlice({
 
         /**
          * Set the current form selections for the current entry
-         * - action.payload: { hostA: string, portA: string, hostB: string, portB: string, radioASelected: boolean }
+         * - action.payload: {formSelection: { hostA: string, portA: string, hostB: string, portB: string, radioASelected: boolean }, index}
          */
         setFormSelections: (state, action) => {
-            state.formSelections[ state.currentEntry ] = action.payload;
+            const {data, index} = action.payload;
+            state.formSelections[ index ] = data;
         },
 
         /**
          * Set the `metadata` for the current entry
-         * - action.payload: { hostA: string, portA: string, hostB: string, portB: string, localhost: string }
+         * - action.payload: {metadata: { hostA: string, portA: string, hostB: string, portB: string, localhost: string }, index}
          */
         setMetadata: (state, action) => {
-            state.metadata[ state.currentEntry ] = action.payload;
-            state.isMetaNew = true;
-        },
-
-        /**
-         * Set whether the metadata has been changed since the last time it was saved
-         */
-        setIsMetaNew: (state, action) => {
-            state.isMetaNew = action.payload;
+            const {data, index} = action.payload;
+            state.metadata[ index ] = data;
         },
 
         /**
          * Set the D3 data for the current entry
          */
         setTimelineData: (state, action) => {
-            state.timelineData[ state.currentEntry ] = action.payload;
+            const {data, index} = action.payload;
+            state.timelineData[ index ] = data;
         },
 
         /**
          * Set the title of the current entry
-         * - action.payload: title of the entry
          */
         setEntryTitle: (state, action) => {
-            state.entryTitles[ state.currentEntry ] = action.payload;
-        }
+            const {data, index} = action.payload;
+            state.entryTitles[ index ] = data;
+        },
+
+        /**
+         * Set the propagation delay for the current entry
+         */
+        setPropDelay: (state, action) => {
+            const {data, index} = action.payload;
+            state.propDelays[ index ] = data;
+        },
     },
 });
 
-export const { setCurrentEntry, addEntry, toggleAlignTime, removeEntry, setFormOpts, setFormSelections, 
-    setMetadata, setTimelineData, setIsMetaNew, setEntryTitle } = timelineViewSlice.actions;
+export const {
+    addEntry,
+    toggleAlignTime,
+    removeEntry,
+    setFormOpts,
+    setFormSelections,
+    setMetadata,
+    setTimelineData,
+    setEntryTitle,
+    setPropDelay,
+} = timelineViewSlice.actions;
 
 export default timelineViewSlice.reducer;
