@@ -3,6 +3,8 @@ import { createSlice, current } from '@reduxjs/toolkit';
 export const controlPanelSlice = createSlice({
     name: 'controlPanel',
     initialState: {
+        selectedIP: "",
+        selectedPort: "",
         nicknameMapping: {},
         isSimulationStable: false,
         isNicknameChangeOpen: false,
@@ -15,6 +17,12 @@ export const controlPanelSlice = createSlice({
         selectedL7Protocols: {}
     },
     reducers: {
+        setSelectedIP: (state, action) => {
+            state.selectedIP = action.payload;
+        },
+        setSelectedPort: (state, action) => {
+            state.selectedPort = action.payload;
+        },
         setNicknameMapping: (state, action) => {
             state.nicknameMapping = {
                 ...state.nicknameMapping,
@@ -38,11 +46,11 @@ export const controlPanelSlice = createSlice({
             state.isNicknameChangeOpen = action.payload;
         },
         setIsShowProtocolsOpen: (state, action) => {
-            if (action.payload) {
-                state.showL4Protocol = false;
-                state.showL7Protocol = false;
-            }
-            state.isShowProtocolsOpen = !state.isShowProtocolsOpen;
+            // if (action.payload) {
+            //     state.showL4Protocol = false;
+            //     state.showL7Protocol = false;
+            // }
+            state.isShowProtocolsOpen = action.payload;
         },
         setShowL4Protocol: (state, action) => {
             state.showL4Protocol = action.payload;
@@ -75,6 +83,8 @@ export const controlPanelSlice = createSlice({
 });
 
 export const {
+                setSelectedIP,
+                setSelectedPort,
                 setNicknameMapping, 
                 resetNicknameMapping, 
                 setIsSimulationStable, 

@@ -12,3 +12,16 @@
     transform: translateX(-50%);
     z-index: 1;
 }
+
+.custom-context-menu {
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+}
+
+.custom-context-menu div {
+    padding: 5px 0;
+}
+
+.custom-context-menu div:hover {
+    background-color: #f0f0f0;
+}

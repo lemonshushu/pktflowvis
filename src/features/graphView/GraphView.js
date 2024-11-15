@@ -7,7 +7,18 @@ import ControlPanel from './components/ControlPanel';
 
 import { setCurrentView } from '../data/dataSlice';
 import { addEntry, setFormOpts } from '../timelineView/timelineViewSlice';
-import { setIsSimulationStable, addProtocols } from './components/controlPanelSlice';
+import { 
+    setSelectedIP, 
+    setSelectedPort, 
+    setIsSimulationStable, 
+    setIsNicknameChangeOpen, 
+    addProtocols,
+    toggleL4Protocol,
+    toggleL7Protocol, 
+    setIsShowProtocolsOpen,
+    setShowL4Protocol,
+    setShowL7Protocol
+} from './components/controlPanelSlice';
 import { setHostGraphData, setPortGraphData } from './graphViewSlice';
 
 import { faChevronRight } from '@fortawesome/free-solid-svg-icons';
@@ -21,10 +32,13 @@ export default function GraphView() {
     const hostData = useSelector((state) => state.graphView.hostGraphData);
     const portData = useSelector((state) => state.graphView.portGraphData);
     const nicknameMapping = useSelector((state) => state.controlPanel.nicknameMapping);
+    
     const mode = useSelector((state) => state.graphView.mode);
     const currentView = useSelector((state) => state.data.currentView);
     const isSimulationStable = useSelector((state) => state.controlPanel.isSimulationStable);
     const isShowProtocolsOpen = useSelector((state) => state.controlPanel.isShowProtocolsOpen);
+    const showL4Protocol = useSelector((state) => state.controlPanel.showL4Protocol);
+    const showL7Protocol = useSelector((state) => state.controlPanel.showL7Protocol);
     const selectedL4Protocols = useSelector((state) => state.controlPanel.selectedL4Protocols);
     const selectedL7Protocols = useSelector((state) => state.controlPanel.selectedL7Protocols);
 
@@ -32,6 +46,7 @@ export default function GraphView() {
     const linkRef = useRef(null);
     const nodeRef = useRef(null);
     const nodesRef = useRef([]);
+    const labelsRef = useRef(null);
     const svgRef = useRef(null); // SVG 요소에 대한 참조를 저장할 ref
     const zoomRef = useRef(null); // zoom behavior에 대한 참조를 저장할 ref
     const isSimulationStableRef = useRef(isSimulationStable);
@@ -452,6 +467,12 @@ export default function GraphView() {
                     tooltip.style("opacity", 0);
                     // Remove the outline on mouseout
                     d3.select(event.target).attr("stroke", null);
+                })
+                .on('contextmenu', (event, d) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    showCustomContextMenu(event.pageX, event.pageY, d);
                 });
 
             // Add labels
@@ -460,7 +481,7 @@ export default function GraphView() {
                 .data(nodes)
                 .join("text")
                 .text(d => getNicknameLabel(d, mode))
-                // .attr('opacity', d=> getOpacity(d.l4_proto, d.l7_proto))
+                .attr('fill-opacity', d=> getOpacity(d.l4_proto, d.l7_proto))
                 .attr("font-size", "10px")
                 .attr("fill", "#555")
                 .attr("dy", "-1em")
@@ -468,7 +489,8 @@ export default function GraphView() {
                 .on("click", (event) => {
                     event.stopPropagation();
                 });
-
+            
+            labelsRef.current = labels;
 
             simulation.stop();
 
@@ -585,12 +607,85 @@ export default function GraphView() {
             if (!isShowProtocolsOpen) {
                 nodeRef.current.attr('opacity', 1);
                 linkRef.current.attr('opacity', 1);
+                labelsRef.current.attr('fill-opacity', 1);
             } else {
                 nodeRef.current.attr('opacity', d => getOpacity(d.l4_proto, d.l7_proto));
                 linkRef.current.attr('opacity', d => getOpacity(d.l4_proto, d.l7_proto));
+                labelsRef.current.attr('fill-opacity', d => getOpacity(d.l4_proto, d.l7_proto));
             }
         }
     }, [isShowProtocolsOpen, selectedL4Protocols, selectedL7Protocols]);
+
+    const showCustomContextMenu = (x, y, nodeData) => {
+        d3.select(".custom-context-menu").remove();
+
+    // 컨텍스트 메뉴를 위한 div 요소를 생성합니다.
+    const menu = d3.select("body")
+        .append("div")
+        .attr("class", "custom-context-menu")
+        .style("position", "absolute")
+        .style("left", `${x}px`)
+        .style("top", `${y}px`)
+        .style("background", "#fff")
+        .style("border", "1px solid #ccc")
+        .style("padding", "10px")
+        .style("border-radius", "4px")
+        .style("box-shadow", "0px 2px 10px rgba(0,0,0,0.2)")
+        .style("z-index", 1000) // 메뉴가 다른 요소 위에 표시되도록 합니다.
+        .on("mouseleave", () => {
+            menu.remove();
+        });
+
+        const ipAddr = nodeData.ip_addr;
+        const port = mode === 'port' ? `:${nodeData.port}` : '';
+        const ipPortPair = `${ipAddr}${port}`;
+
+        menu.append("div")
+            .text(`Change Nickname of ${ipPortPair}`)
+            .style("margin-bottom", "5px")
+            .on('click', ()=> {
+                dispatch(setSelectedIP(ipAddr));
+                if (mode === 'port') {
+                    dispatch(setSelectedPort(nodeData.port));
+                }
+                dispatch(setIsNicknameChangeOpen(true));
+            });
+        
+
+        if (port) {
+            menu.append("div")
+                .text("Choosing L4 Protocol of this Host as Filter") //getL4MenuText(nodeData.l4_proto))
+                .style("margin-bottom", "5px")
+                .on('click', () => {
+                    nodeData.l4_proto.forEach((protocol) => dispatch(toggleL4Protocol(protocol)));
+                    if (!isShowProtocolsOpen) {dispatch(setIsShowProtocolsOpen(true));}
+                    if (!showL4Protocol) {dispatch(setShowL4Protocol(true));}
+                });
+
+            menu.append("div")
+                .text("Choosing L7 Protocol of this Host as Filter") //getL7MenuText(nodeData.l7_proto))
+                .style("margin-bottom", "5px")
+                .on('click', () => {
+                    nodeData.l7_proto.forEach((protocol) => dispatch(toggleL7Protocol(protocol)));
+                    if (!isShowProtocolsOpen) {dispatch(setIsShowProtocolsOpen(true));}
+                    if (!showL7Protocol) {dispatch(setShowL7Protocol(true));}
+                });
+        }
+    }
+    
+    // const getL4MenuText = (l4_proto) => {
+    //     let isSelected = false;
+    //     l4_proto.forEach((protocol) => {isSelected = isSelected || selectedL4Protocols[protocol];});
+    //     return isSelected ? "Not Choosing L4 Protocol of this Host as Filter" 
+    //                       : "Choosing L4 Protocol of this Host as Filter"
+    // }
+
+    // const getL7MenuText = (l7_proto) => {
+    //     let isSelected = false;
+    //     l7_proto.forEach((protocol) => {isSelected = isSelected || selectedL4Protocols[protocol];});
+    //     return isSelected ? "Not Choosing L7 Protocol of this Host as Filter" 
+    //                       : "Choosing L7 Protocol of this Host as Filter"
+    // }
 
     const getOpacity = (l4_proto, l7_proto) => {
         if (isShowProtocolsOpen && mode === 'port') {
