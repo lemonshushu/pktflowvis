@@ -13,7 +13,6 @@ import { setHostGraphData, setPortGraphData } from './graphViewSlice';
 import { faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import './GraphView.css';
-import "react-toggle/style.css";
 
 export default function GraphView() {
     const packets = useSelector((state) => state.data.packets);
