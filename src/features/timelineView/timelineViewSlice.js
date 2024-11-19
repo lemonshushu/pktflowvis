@@ -96,6 +96,14 @@ export const timelineViewSlice = createSlice({
             state.formSelections[ index ] = data;
         },
 
+        swapFormSelections: (state, action) => {
+            // action.payload is entry index
+            const index = action.payload;
+            const formSelections = state.formSelections[ index ];
+            const { hostA, portA, hostB, portB, radioASelected } = formSelections;
+            state.formSelections[ index ] = { hostA: hostB, portA: portB, hostB: hostA, portB: portA, radioASelected: !radioASelected };
+        },
+
         /**
          * Set the `metadata` for the current entry
          * - action.payload: {metadata: { hostA: string, portA: string, hostB: string, portB: string, localhost: string }, index}
@@ -141,6 +149,7 @@ export const {
     setTimelineData,
     setEntryTitle,
     setPropDelay,
+    swapFormSelections,
 } = timelineViewSlice.actions;
 
 export default timelineViewSlice.reducer;
