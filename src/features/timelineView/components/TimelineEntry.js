@@ -38,6 +38,7 @@ export default function TimelineEntry({ entryIndex }) {
     const [ d3ShouldRender, setD3ShouldRender ] = useState(true);
     const [ isHostASelected, setIsHostASelected ] = useState(false);
     const [ hostBOptions, setHostBOptions ] = useState({});
+    const [ shouldResetCheck, setShouldResetCheck ] = useState(false);
 
     useEffect(() => {
         if (formSelection.hostA && formSelection.portA) {
@@ -67,9 +68,15 @@ export default function TimelineEntry({ entryIndex }) {
         else {
             setIsHostASelected(false);
         }
+        setShouldResetCheck(true);
     }, [ availableLinks, formSelection.hostA, formSelection.portA ]);
 
     useEffect(() => {
+        setShouldResetCheck(true);
+    }, [formSelection.hostB, formSelection.portB]);
+
+    useEffect(() => {
+        if (!shouldResetCheck) return;
         let isChanged = false;
         const newFormSelection = {...formSelection};
         // if formSelection.portA is not included in formOpts, reset formSelection.portA
@@ -92,7 +99,8 @@ export default function TimelineEntry({ entryIndex }) {
             isChanged = true;
         }
         if (isChanged) dispatch(setFormSelections({ data: newFormSelection, index: entryIndex }));
-    }, [dispatch, entryIndex, formOpts, formSelection, hostBOptions]);
+        setShouldResetCheck(false);
+    }, [dispatch, entryIndex, formOpts, formSelection, hostBOptions, shouldResetCheck]);
 
     /**
      * Filter out packets based on the selected hosts and ports, sort them by time, and set the timeline data for D3 visualization
