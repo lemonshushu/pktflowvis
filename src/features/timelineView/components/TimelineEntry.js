@@ -1,4 +1,4 @@
-import { faFloppyDisk, faPencil, faX } from '@fortawesome/free-solid-svg-icons';
+import { faArrowsUpDown, faFloppyDisk, faPencil, faX } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import * as d3 from "d3";
 import { useEffect, useRef, useState } from 'react';
@@ -11,6 +11,7 @@ import {
     setMetadata,
     setPropDelay,
     setTimelineData,
+    swapFormSelections,
 } from '../timelineViewSlice';
 import "./TimelineEntry.css";
 
@@ -25,6 +26,8 @@ export default function TimelineEntry({ entryIndex }) {
     const svgRef = useRef(null);
     const entryTitles = useSelector((state) => state.timelineView.entryTitles);
     const propDelays = useSelector((state) => state.timelineView.propDelays);
+    const portGraphData = useSelector((state) => state.graphView.portGraphData);
+    const availableLinks = portGraphData.links;
 
     const [ titleText, setTitleText ] = useState(entryTitles[ entryIndex ]);
     const [ titleEditMode, setTitleEditMode ] = useState(false);
@@ -33,7 +36,71 @@ export default function TimelineEntry({ entryIndex }) {
     const [ timelineDataShouldUpdate, setTimelineDataShouldUpdate ] = useState(false);
     const [ propDelayShouldUpdate, setPropDelayShouldUpdate ] = useState(false);
     const [ d3ShouldRender, setD3ShouldRender ] = useState(true);
+    const [ isHostASelected, setIsHostASelected ] = useState(false);
+    const [ hostBOptions, setHostBOptions ] = useState({});
+    const [ shouldResetCheck, setShouldResetCheck ] = useState(false);
 
+    useEffect(() => {
+        if (formSelection.hostA && formSelection.portA) {
+            setIsHostASelected(true);
+
+            // availableLinks를 통해, 반대편(Host B)의 가능한 IP주소 및 포트를 가져와서 설정
+            const hostBOptions = {};
+            availableLinks.forEach(link => {
+                if (link.src_ip === formSelection.hostA && link.src_port === formSelection.portA) {
+                    if (!hostBOptions[ link.dst_ip ]) {
+                        hostBOptions[ link.dst_ip ] = [];
+                    }
+                    if (!hostBOptions[ link.dst_ip ].includes(link.dst_port)) {
+                        hostBOptions[ link.dst_ip ].push(link.dst_port);
+                    }
+                } else if (link.dst_ip === formSelection.hostA && link.dst_port === formSelection.portA) {
+                    if (!hostBOptions[ link.src_ip ]) {
+                        hostBOptions[ link.src_ip ] = [];
+                    }
+                    if (!hostBOptions[ link.src_ip ].includes(link.src_port)) {
+                        hostBOptions[ link.src_ip ].push(link.src_port);
+                    }
+                }
+            });
+            setHostBOptions(hostBOptions);
+        }
+        else {
+            setIsHostASelected(false);
+        }
+        setShouldResetCheck(true);
+    }, [ availableLinks, formSelection.hostA, formSelection.portA ]);
+
+    useEffect(() => {
+        setShouldResetCheck(true);
+    }, [formSelection.hostB, formSelection.portB]);
+
+    useEffect(() => {
+        if (!shouldResetCheck) return;
+        let isChanged = false;
+        const newFormSelection = {...formSelection};
+        // if formSelection.portA is not included in formOpts, reset formSelection.portA
+        if (formSelection.portA && formOpts.length > 0) {
+            const hostA = formOpts.find(opt => opt.ip_addr === formSelection.hostA);
+            if (!hostA.ports.includes(formSelection.portA)) {
+                newFormSelection.portA = "";
+                isChanged = true;
+            }
+        }
+        // if formSelection.portB is not included in hostBOptions, reset formSelection.portB and hostB
+        if (formSelection.hostB && !hostBOptions[ formSelection.hostB ]) {
+            newFormSelection.hostB = "";
+            newFormSelection.portB = "";
+            isChanged = true;
+        }
+        // If portB is not included in hostBoptions[hostB], reset portB
+        else if (formSelection.portB && !hostBOptions[ formSelection.hostB ].includes(formSelection.portB)) {
+            newFormSelection.portB = "";
+            isChanged = true;
+        }
+        if (isChanged) dispatch(setFormSelections({ data: newFormSelection, index: entryIndex }));
+        setShouldResetCheck(false);
+    }, [dispatch, entryIndex, formOpts, formSelection, hostBOptions, shouldResetCheck]);
 
     /**
      * Filter out packets based on the selected hosts and ports, sort them by time, and set the timeline data for D3 visualization
@@ -555,59 +622,75 @@ export default function TimelineEntry({ entryIndex }) {
                 <svg width="80%" height="200px" className="timeline-svg" ref={svgRef} />
                 <Form className="entry-form p-4">
                     <Row>
-                        <Col xs={5}></Col>
-                        <Col xs={3}></Col>
-                        <Col xs={2}>localhost</Col>
-                        <Col xs={1}></Col>
-                    </Row>
-                    <Row className="mb-3">
-                        <Col xs={5} className="d-flex align-items-center justify-content-center">
-                            <Form.Label column={false}><strong>Host A: </strong></Form.Label>
-                            <Form.Select className="ms-3" style={{ width: 250 }} onChange={onHostAChange} value={formSelection.hostA}>
-                                {formOpts.map((opt, index) => {
-                                    return (<option key={index}>{opt.ip_addr}</option>);
-                                })}
-                            </Form.Select>
-                        </Col>
-                        <Col xs={3} className="d-flex align-items-center justify-content-center">
-                            <Form.Label column={false}>Port: </Form.Label>
-                            <Form.Select className="ms-3" style={{ width: 150 }} onChange={onPortAChange} value={formSelection.portA}>
-                                {formOpts.length > 0 ? formOpts[ formOpts.findIndex((opt) => opt.ip_addr === formSelection.hostA) ].ports.map((port, index) => {
-                                    return (<option key={index}>{port}</option>);
+                        <Col xs={1} className="d-flex align-items-center justify-content-end">
+                            <Button className="rounded-circle" variant="light" onClick={
+                                () => {
+                                    dispatch(swapFormSelections(entryIndex));
                                 }
-                                ) : null}
-                            </Form.Select>
+                            } ><FontAwesomeIcon icon={faArrowsUpDown} size="l" /></Button>
                         </Col>
-                        <Col xs={2} className="d-flex align-items-center justify-content-center">
-                            <Form.Check type="radio" name="localhost" value="A" onChange={onRadioChange} checked={formSelection.radioASelected} />
-                        </Col>
-                        <Col xs={1} className="d-flex align-items-center justify-content-center">
-                            <Button variant="light" onClick={onResetClick}>Reset</Button>
-                        </Col>
-                    </Row>
-                    <Row>
-                        <Col xs={5} className="d-flex align-items-center justify-content-center">
-                            <Form.Label column={false}><strong>Host B: </strong></Form.Label>
-                            <Form.Select className="ms-3" style={{ width: 250 }} onChange={onHostBChange} value={formSelection.hostB}>
-                                {formOpts.map((opt, index) => {
-                                    return (<option key={index}>{opt.ip_addr}</option>);
-                                })}</Form.Select>
-                        </Col>
-                        <Col xs={3} className="d-flex align-items-center justify-content-center">
-                            <Form.Label column={false}>Port: </Form.Label>
-                            <Form.Select className="ms-3" style={{ width: 150 }} onChange={onPortBChange} value={formSelection.portB}>
-                                {formOpts.length > 0 ? formOpts[ formOpts.findIndex((opt) => opt.ip_addr === formSelection.hostB) ].ports.map((port, index) => {
-                                    return (<option key={index}>{port}</option>);
-                                }
-                                ) : null}
-                            </Form.Select>
-                        </Col>
-                        <Col xs={2} className="d-flex align-items-center justify-content-center">
-                            <Form.Check type="radio" name="localhost" value="B" onChange={onRadioChange} checked={!formSelection.radioASelected} />
-                        </Col>
-                        <Col xs={1} className="d-flex align-items-center justify-content-center">
-                            <Button onClick={onFormSubmit}>Save</Button>
-                        </Col>
+                        <Col xs={11}>
+                            <Row>
+                                <Col xs={4}></Col>
+                                <Col xs={3}></Col>
+                                <Col xs={2}>localhost</Col>
+                                <Col xs={1}></Col>
+                            </Row>
+                            <Row className="mb-3">
+                                <Col xs={4} className="d-flex align-items-center justify-content-center">
+                                    <Form.Label column={false}><strong>Host A: </strong></Form.Label>
+                                    <Form.Select className="ms-3" style={{ width: 250 }} onChange={onHostAChange} value={formSelection.hostA}>
+                                        {formOpts.map((opt, index) => {
+                                            return (<option key={index}>{opt.ip_addr}</option>);
+                                        })}
+                                    </Form.Select>
+                                </Col>
+                                <Col xs={3} className="d-flex align-items-center justify-content-center">
+                                    <Form.Label column={false}>Port: </Form.Label>
+                                    <Form.Select className="ms-3" style={{ width: 150 }} onChange={onPortAChange} value={formSelection.portA}>
+                                        {formOpts.length > 0 ? formOpts[ formOpts.findIndex((opt) => opt.ip_addr === formSelection.hostA) ].ports.map((port, index) => {
+                                            return (<option key={index}>{port}</option>);
+                                        }
+                                        ) : null}
+                                    </Form.Select>
+                                </Col>
+                                <Col xs={2} className="d-flex align-items-center justify-content-center">
+                                    <Form.Check type="radio" name="localhost" value="A" onChange={onRadioChange} checked={formSelection.radioASelected} />
+                                </Col>
+                                <Col xs={1} className="d-flex align-items-center justify-content-center">
+                                    <Button variant="light" onClick={onResetClick}>Reset</Button>
+                                </Col>
+                            </Row>
+                            <Row>
+                                <Col xs={4} className="d-flex align-items-center justify-content-center">
+                                    <Form.Label column={false}><strong>Host B: </strong></Form.Label>
+                                    <Form.Select className="ms-3" style={{ width: 250 }} onChange={onHostBChange} value={formSelection.hostB} disabled={!isHostASelected}>
+                                        <option />
+                                        {
+                                            Object.keys(hostBOptions).map((ip, index) => {
+                                                return (<option key={index}>{ip}</option>);
+                                            })
+                                        }
+                                    </Form.Select>
+                                </Col>
+                                <Col xs={3} className="d-flex align-items-center justify-content-center">
+                                    <Form.Label column={false}>Port: </Form.Label>
+                                    <Form.Select className="ms-3" style={{ width: 150 }} onChange={onPortBChange} value={formSelection.portB} disabled={!isHostASelected}>
+                                        <option />
+                                        {
+                                            hostBOptions[ formSelection.hostB ] ? hostBOptions[ formSelection.hostB ].map((port, index) => {
+                                                return (<option key={index}>{port}</option>);
+                                            }) : null
+                                        }
+                                    </Form.Select>
+                                </Col>
+                                <Col xs={2} className="d-flex align-items-center justify-content-center">
+                                    <Form.Check type="radio" name="localhost" value="B" onChange={onRadioChange} checked={!formSelection.radioASelected} />
+                                </Col>
+                                <Col xs={1} className="d-flex align-items-center justify-content-center">
+                                    <Button onClick={onFormSubmit}>Save</Button>
+                                </Col>
+                            </Row></Col>
                     </Row>
                 </Form>
             </Card.Body>
