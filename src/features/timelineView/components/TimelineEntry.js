@@ -73,12 +73,12 @@ export default function TimelineEntry({ entryIndex }) {
 
     useEffect(() => {
         setShouldResetCheck(true);
-    }, [formSelection.hostB, formSelection.portB]);
+    }, [ formSelection.hostB, formSelection.portB ]);
 
     useEffect(() => {
         if (!shouldResetCheck) return;
         let isChanged = false;
-        const newFormSelection = {...formSelection};
+        const newFormSelection = { ...formSelection };
         // if formSelection.portA is not included in formOpts, reset formSelection.portA
         if (formSelection.portA && formOpts.length > 0) {
             const hostA = formOpts.find(opt => opt.ip_addr === formSelection.hostA);
@@ -100,7 +100,7 @@ export default function TimelineEntry({ entryIndex }) {
         }
         if (isChanged) dispatch(setFormSelections({ data: newFormSelection, index: entryIndex }));
         setShouldResetCheck(false);
-    }, [dispatch, entryIndex, formOpts, formSelection, hostBOptions, shouldResetCheck]);
+    }, [ dispatch, entryIndex, formOpts, formSelection, hostBOptions, shouldResetCheck ]);
 
     /**
      * Filter out packets based on the selected hosts and ports, sort them by time, and set the timeline data for D3 visualization
@@ -168,6 +168,7 @@ export default function TimelineEntry({ entryIndex }) {
             const localPort = isLocalHostA ? metadata[ entryIndex ].portA : metadata[ entryIndex ].portB;
             const remoteIP = isLocalHostA ? metadata[ entryIndex ].hostB : metadata[ entryIndex ].hostA;
             const remotePort = isLocalHostA ? metadata[ entryIndex ].portB : metadata[ entryIndex ].portA;
+            const isTCP = data[ 0 ]._source.layers.tcp;
 
             // Helper function to extract packet info
             function getPacketInfo(packet) {
@@ -190,64 +191,131 @@ export default function TimelineEntry({ entryIndex }) {
                 return { srcIP, dstIP, srcPort, dstPort };
             }
 
-            for (let i = 0; i < data.length - 1; i++) {
-                const currentPacket = data[ i ];
-                const currentTime = parseFloat(currentPacket._source.layers.frame[ "frame.time_epoch" ]);
-                const currentPacketInfo = getPacketInfo(currentPacket);
-
-                // Determine if current packet is TX (from local IP and port to remote IP and port)
-                const isCurrentTX = currentPacketInfo.srcIP === localIP &&
-                    currentPacketInfo.dstIP === remoteIP &&
-                    currentPacketInfo.srcPort === localPort &&
-                    currentPacketInfo.dstPort === remotePort;
-
-                if (isCurrentTX) {
-                    // Skip all consecutive TX packets
-                    let nextPacket;
-                    let nextTime;
-                    let isNextRX = false;
-
-                    let j = i + 1;
-                    while (j < data.length) {
-                        nextPacket = data[ j ];
-                        nextTime = parseFloat(nextPacket._source.layers.frame[ "frame.time_epoch" ]);
-                        const nextPacketInfo = getPacketInfo(nextPacket);
-
-                        // Check if next packet is RX
-                        isNextRX = nextPacketInfo.srcIP === remoteIP &&
-                            nextPacketInfo.dstIP === localIP &&
-                            nextPacketInfo.srcPort === remotePort &&
-                            nextPacketInfo.dstPort === localPort;
-
-                        if (isNextRX) {
-                            break; // Exit loop once RX packet is found
+            if (isTCP) {
+                // Use TCP sequence numbers to calculate RTT
+                for (let i = 0; i < data.length - 1; i++) {
+                    const currentPacket = data[i];
+                    const currentTime = parseFloat(currentPacket._source.layers.frame["frame.time_epoch"]);
+                    const currentPacketInfo = getPacketInfo(currentPacket);
+                
+                    // Determine if current packet is TX (from local IP and port to remote IP and port)
+                    const isCurrentTX = currentPacketInfo.srcIP === localIP &&
+                        currentPacketInfo.dstIP === remoteIP &&
+                        currentPacketInfo.srcPort === localPort &&
+                        currentPacketInfo.dstPort === remotePort;
+                
+                    if (isCurrentTX) {
+                        const tcpLayer = currentPacket._source.layers.tcp;
+                        const expectedAckNum = tcpLayer["tcp.nxtseq"] + 1;
+                
+                        // Search for corresponding ACK packet
+                        let ackPacket;
+                        let ackTime;
+                        let j = i + 1;
+                        while (j < data.length) {
+                            ackPacket = data[j];
+                            ackTime = parseFloat(ackPacket._source.layers.frame["frame.time_epoch"]);
+                            const ackPacketInfo = getPacketInfo(ackPacket);
+                
+                            // Check if ackPacket is RX (from remote IP and port to local IP and port)
+                            const isAckPacketRX = ackPacketInfo.srcIP === remoteIP &&
+                                ackPacketInfo.dstIP === localIP &&
+                                ackPacketInfo.srcPort === remotePort &&
+                                ackPacketInfo.dstPort === localPort;
+                
+                            if (isAckPacketRX) {
+                                const ackTcpLayer = ackPacket._source.layers.tcp;
+                                const ackNum = parseInt(ackTcpLayer["tcp.ack"]);
+                
+                                if (ackNum >= expectedAckNum) {
+                                    // Found the ACK packet
+                                    const delta = ackTime - currentTime;
+                                    if (delta > 0) {
+                                        delays.push(delta);
+                                    }
+                                    i = j; // Update i to skip processed packets
+                                    break; // Exit loop once ACK packet is found
+                                }
+                            }
+                            j++;
                         }
-                        j++;
-                    }
-
-                    if (isNextRX) {
-                        const delta = nextTime - currentTime;
-                        if (delta > 0) {
-                            delays.push(delta);
-                        }
-                        i = j + 1; // Update i to skip processed packets
                     }
                 }
-            }
+                
+                // If no valid delays are found, set a default propagation delay
+                let propDelay;
+                if (delays.length > 0) {
+                    // Take the average of the delays and divide by 2
+                    const sum = delays.reduce((acc, curr) => acc + curr, 0);
+                    propDelay = sum / delays.length / 2;
+                } else {
+                    propDelay = 0.001; // Default to 1 millisecond if no delays are found
+                }
+                
+                dispatch(setPropDelay({ data: propDelay, index: entryIndex }));
+                
 
-
-            // If no valid delays are found, set a default propagation delay
-            let medDelay;
-            if (delays.length > 0) {
-
-                // Take the median of the delays and divide by 2
-                delays.sort((a, b) => a - b);
-                medDelay = delays[ Math.floor(delays.length / 2) ] / 2;
             } else {
-                medDelay = 0.001; // Default to 1 millisecond if no delays are found
+                for (let i = 0; i < data.length - 1; i++) {
+                    const currentPacket = data[ i ];
+                    const currentTime = parseFloat(currentPacket._source.layers.frame[ "frame.time_epoch" ]);
+                    const currentPacketInfo = getPacketInfo(currentPacket);
+
+                    // Determine if current packet is TX (from local IP and port to remote IP and port)
+                    const isCurrentTX = currentPacketInfo.srcIP === localIP &&
+                        currentPacketInfo.dstIP === remoteIP &&
+                        currentPacketInfo.srcPort === localPort &&
+                        currentPacketInfo.dstPort === remotePort;
+
+                    if (isCurrentTX) {
+                        // Skip all consecutive TX packets
+                        let nextPacket;
+                        let nextTime;
+                        let isNextRX = false;
+
+                        let j = i + 1;
+                        while (j < data.length) {
+                            nextPacket = data[ j ];
+                            nextTime = parseFloat(nextPacket._source.layers.frame[ "frame.time_epoch" ]);
+                            const nextPacketInfo = getPacketInfo(nextPacket);
+
+                            // Check if next packet is RX
+                            isNextRX = nextPacketInfo.srcIP === remoteIP &&
+                                nextPacketInfo.dstIP === localIP &&
+                                nextPacketInfo.srcPort === remotePort &&
+                                nextPacketInfo.dstPort === localPort;
+
+                            if (isNextRX) {
+                                break; // Exit loop once RX packet is found
+                            }
+                            j++;
+                        }
+
+                        if (isNextRX) {
+                            const delta = nextTime - currentTime;
+                            if (delta > 0) {
+                                delays.push(delta);
+                            }
+                            i = j + 1; // Update i to skip processed packets
+                        }
+                    }
+                }
+
+
+                // If no valid delays are found, set a default propagation delay
+                let medDelay;
+                if (delays.length > 0) {
+
+                    // Take the median of the delays and divide by 2
+                    delays.sort((a, b) => a - b);
+                    medDelay = delays[ Math.floor(delays.length / 2) ] / 2;
+                } else {
+                    medDelay = 0.001; // Default to 1 millisecond if no delays are found
+                }
+
+                dispatch(setPropDelay({ data: medDelay, index: entryIndex }));
             }
 
-            dispatch(setPropDelay({ data: medDelay, index: entryIndex }));
             setPropDelayShouldUpdate(false);
             setD3ShouldRender(true);
         }
@@ -312,12 +380,12 @@ export default function TimelineEntry({ entryIndex }) {
         const timeDomainEnd = timeMax + timePadding;
 
         const xScale = d3.scaleLinear()
-            .domain([ 0, timeDomainEnd - timeDomainStart])
+            .domain([ 0, timeDomainEnd - timeDomainStart ])
             .range([ 0, svgWidth ]);
 
-        const xAxis = d3.axisBottom(xScale)
-            // .ticks(5)
-            // .tickFormat(d3.timeFormat("%H:%M:%S.%L")); // Format to show hours, minutes, seconds, milliseconds
+        const xAxis = d3.axisBottom(xScale);
+        // .ticks(5)
+        // .tickFormat(d3.timeFormat("%H:%M:%S.%L")); // Format to show hours, minutes, seconds, milliseconds
 
         const yPositions = {
             "A": hostAY,
@@ -382,7 +450,7 @@ export default function TimelineEntry({ entryIndex }) {
 
         // Process packets
         const packets = data.map(packet => {
-            const time = parseFloat(packet._source.layers.frame[ "frame.time_epoch" ]) - timeDomainStart
+            const time = parseFloat(packet._source.layers.frame[ "frame.time_epoch" ]) - timeDomainStart;
             const srcIP = packet._source.layers.ip[ "ip.src" ];
             const dstIP = packet._source.layers.ip[ "ip.dst" ];
             const srcPort = packet._source.layers.tcp ? packet._source.layers.tcp[ "tcp.srcport" ] : packet._source.layers.udp[ "udp.srcport" ];
@@ -458,7 +526,7 @@ export default function TimelineEntry({ entryIndex }) {
             .attr("class", "packet")
             .attr("x1", d => xScale(d.sendTime))
             .attr("y1", d => yPositions[ d.sourceHost ])
-            .attr("x2", d => xScale(d.receiveTime ))
+            .attr("x2", d => xScale(d.receiveTime))
             .attr("y2", d => yPositions[ d.destHost ])
             .attr("stroke", d => protocolColor(d.l7Protocol))
             .attr("stroke-width", 3) // Increased thickness
@@ -487,9 +555,9 @@ export default function TimelineEntry({ entryIndex }) {
             .attr("transform", `translate(0, ${svgHeight + 10})`)
             .call(
                 d3.axisBottom(xScale)
-                    // .ticks(5)
-                    // .tickSize(-svgHeight - 10) // Extend grid lines upward
-                    // .tickFormat("")
+                // .ticks(5)
+                // .tickSize(-svgHeight - 10) // Extend grid lines upward
+                // .tickFormat("")
             )
             .selectAll(".tick line")
             .attr("stroke", "#e0e0e0")
