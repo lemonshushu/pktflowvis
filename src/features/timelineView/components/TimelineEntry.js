@@ -350,16 +350,16 @@ export default function TimelineEntry({ entryIndex }) {
         // ADD YOUR CODE HERE
         // After svg.selectAll("*").remove();
 
-        const margin = { top: 20, right: 30, bottom: 50, left: 80 };
-        const svgWidth = svgRef.current.clientWidth - margin.left - margin.right;
-        const svgHeight = svgRef.current.clientHeight - margin.top - margin.bottom;
+        const margin = { top: 20, right: 40, bottom: 50, left: 140 };
+        const timelineWidth = svgRef.current.clientWidth - margin.left - margin.right;
+        const timelineHeight = svgRef.current.clientHeight - margin.top - margin.bottom;
 
         const svgGroup = svg.append("g")
             .attr("transform", `translate(${margin.left},${margin.top})`);
 
         // Define host positions
         const hostAY = 0;
-        const hostBY = svgHeight;
+        const hostBY = timelineHeight;
 
         // Get metadata and constants
         const ipA = metadata[ entryIndex ].hostA;
@@ -381,7 +381,7 @@ export default function TimelineEntry({ entryIndex }) {
 
         const xScale = d3.scaleLinear()
             .domain([ 0, timeDomainEnd - timeDomainStart ])
-            .range([ 0, svgWidth ]);
+            .range([ 0, timelineWidth ]);
 
         const xAxis = d3.axisBottom(xScale);
         // .ticks(5)
@@ -397,7 +397,7 @@ export default function TimelineEntry({ entryIndex }) {
             .attr("class", "host-line")
             .attr("x1", 0)
             .attr("y1", hostAY)
-            .attr("x2", svgWidth)
+            .attr("x2", timelineWidth)
             .attr("y2", hostAY)
             .attr("stroke", "black");
 
@@ -405,24 +405,10 @@ export default function TimelineEntry({ entryIndex }) {
             .attr("class", "host-line")
             .attr("x1", 0)
             .attr("y1", hostBY)
-            .attr("x2", svgWidth)
+            .attr("x2", timelineWidth)
             .attr("y2", hostBY)
             .attr("stroke", "black");
 
-        // Add host labels
-        svgGroup.append("text")
-            .attr("x", -margin.left + 10)
-            .attr("y", hostAY)
-            .attr("dy", "0.35em")
-            .text(`${ipA}:${metadata[ entryIndex ].portA}`)
-            .style("font-size", "12px");
-
-        svgGroup.append("text")
-            .attr("x", -margin.left + 10)
-            .attr("y", hostBY)
-            .attr("dy", "0.35em")
-            .text(`${ipB}:${metadata[ entryIndex ].portB}`)
-            .style("font-size", "12px");
 
         // Define arrowhead marker
         svg.append("defs").append("marker")
@@ -543,16 +529,51 @@ export default function TimelineEntry({ entryIndex }) {
                 tooltip.transition().duration(500).style("opacity", 0);
             });
 
+
+        // Draw white box on the left & right margins to hide the overflowing arrows
+        svgGroup.append("rect")
+            .attr("x", -margin.left)
+            .attr("y", 0)
+            .attr("width", margin.left)
+            .attr("height", timelineHeight)
+            .attr("fill", "white")
+            .attr("stroke", "white")
+            .attr("stroke-width", 4);
+
+        svgGroup.append("rect")
+            .attr("x", timelineWidth)
+            .attr("y", 0)
+            .attr("width", margin.right)
+            .attr("height", timelineHeight)
+            .attr("fill", "white")
+            .attr("stroke", "white")
+            .attr("stroke-width", 4);
+
+            // Add host labels
+            svgGroup.append("text")
+                .attr("x", -margin.left + 10)
+                .attr("y", hostAY)
+                .attr("dy", "0.35em")
+                .text(`${ipA}:${metadata[ entryIndex ].portA}`)
+                .style("font-size", "14px");
+    
+            svgGroup.append("text")
+                .attr("x", -margin.left + 10)
+                .attr("y", hostBY)
+                .attr("dy", "0.35em")
+                .text(`${ipB}:${metadata[ entryIndex ].portB}`)
+                .style("font-size", "14px");
+
         // Add x-axis
         const xAxisGroup = svgGroup.append("g")
             .attr("class", "x-axis")
-            .attr("transform", `translate(0, ${svgHeight + 10})`)
+            .attr("transform", `translate(0, ${hostBY})`)
             .call(xAxis);
 
         // Add grid lines with dotted lines
         svgGroup.append("g")
             .attr("class", "grid")
-            .attr("transform", `translate(0, ${svgHeight + 10})`)
+            .attr("transform", `translate(0, ${hostBY})`)
             .call(
                 d3.axisBottom(xScale)
                 // .ticks(5)
@@ -569,7 +590,7 @@ export default function TimelineEntry({ entryIndex }) {
         // Add zoom behavior
         const zoom = d3.zoom()
             .scaleExtent([ 0.5, 20 ]) // Adjust scale extent as needed
-            .translateExtent([ [ 0, 0 ], [ svgWidth, svgHeight ] ])
+            .translateExtent([ [ 0, 0 ], [ timelineWidth, timelineHeight ] ])
             .on("zoom", zoomed);
 
         svg.call(zoom);
@@ -588,7 +609,7 @@ export default function TimelineEntry({ entryIndex }) {
                 .call(
                     d3.axisBottom(newXScale)
                         .ticks(5)
-                        .tickSize(-svgHeight - 10)
+                        .tickSize(-timelineHeight - 10)
                         .tickFormat("")
                 )
                 .selectAll(".tick line")
@@ -690,7 +711,7 @@ export default function TimelineEntry({ entryIndex }) {
 
                     </div>
                 }
-                <svg width="80%" height="200px" className="timeline-svg" ref={svgRef} />
+                <svg width="100%" height="200px" className="timeline-svg" ref={svgRef} />
                 <Form className="entry-form p-4">
                     <Row>
                         <Col xs={1} className="d-flex align-items-center justify-content-end">
