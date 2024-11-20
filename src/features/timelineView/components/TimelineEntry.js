@@ -239,15 +239,17 @@ export default function TimelineEntry({ entryIndex }) {
 
 
             // If no valid delays are found, set a default propagation delay
-            let avgDelay;
+            let medDelay;
             if (delays.length > 0) {
-                // Since delta is RTT, the propagation delay is half of the average RTT
-                avgDelay = (delays.reduce((acc, curr) => acc + curr, 0) / delays.length) / 2;
+
+                // Take the median of the delays and divide by 2
+                delays.sort((a, b) => a - b);
+                medDelay = delays[ Math.floor(delays.length / 2) ] / 2;
             } else {
-                avgDelay = 0.001; // Default to 1 millisecond if no delays are found
+                medDelay = 0.001; // Default to 1 millisecond if no delays are found
             }
 
-            dispatch(setPropDelay({ data: avgDelay, index: entryIndex }));
+            dispatch(setPropDelay({ data: medDelay, index: entryIndex }));
             setPropDelayShouldUpdate(false);
             setD3ShouldRender(true);
         }
@@ -297,6 +299,8 @@ export default function TimelineEntry({ entryIndex }) {
         // Get metadata and constants
         const ipA = metadata[ entryIndex ].hostA;
         const ipB = metadata[ entryIndex ].hostB;
+        const portA = metadata[ entryIndex ].portA;
+        const portB = metadata[ entryIndex ].portB;
         const localhost = metadata[ entryIndex ].localhost; // "A" or "B"
 
         // Extract times and define scales
@@ -384,11 +388,13 @@ export default function TimelineEntry({ entryIndex }) {
             const time = parseFloat(packet._source.layers.frame[ "frame.time_epoch" ]);
             const srcIP = packet._source.layers.ip[ "ip.src" ];
             const dstIP = packet._source.layers.ip[ "ip.dst" ];
+            const srcPort = packet._source.layers.tcp ? packet._source.layers.tcp[ "tcp.srcport" ] : packet._source.layers.udp[ "udp.srcport" ];
+            const dstPort = packet._source.layers.tcp ? packet._source.layers.tcp[ "tcp.dstport" ] : packet._source.layers.udp[ "udp.dstport" ];
             let sourceHost, destHost;
-            if (srcIP === ipA && dstIP === ipB) {
+            if (srcIP === ipA && dstIP === ipB && srcPort === portA && dstPort === portB) {
                 sourceHost = "A";
                 destHost = "B";
-            } else if (srcIP === ipB && dstIP === ipA) {
+            } else if (srcIP === ipB && dstIP === ipA && srcPort === portB && dstPort === portA) {
                 sourceHost = "B";
                 destHost = "A";
             } else {
