@@ -50,7 +50,7 @@ export default function TimelineView() {
                             );
                         })}
                     </Container>
-                    <div style={{ position: "absolute", left: 40, top: "50vh", zIndex: 10 }}>
+                    <div style={{ position: "fixed", left: 40, top: "50vh", zIndex: 10 }}>
                         <Button className="rounded-circle" variant="light" onClick={onNavigateToGraph}><FontAwesomeIcon icon={faChevronLeft} size="2xl" /></Button>
                     </div>
                 </div>
