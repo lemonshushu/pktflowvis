@@ -160,8 +160,6 @@ export default function TimelineEntry({ entryIndex }) {
         // Calculate propagation delay using RTT between TX and RX packets
         if (propDelayShouldUpdate) {
             const data = timelineData[ entryIndex ];
-            // Print `data`
-            console.log(data);
             const delays = [];
 
             // Determine local and remote IP addresses and ports
@@ -267,8 +265,7 @@ export default function TimelineEntry({ entryIndex }) {
         if (!d3ShouldRender) return;
         setD3ShouldRender(false);
         const propDelay = propDelays[ entryIndex ];
-        // Print propd
-        console.log("propDelay: " + propDelay);
+
         // Render timeline from `timelineData`
         const data = timelineData[ entryIndex ];
         if (data.length === 0) {
@@ -314,13 +311,13 @@ export default function TimelineEntry({ entryIndex }) {
         const timeDomainStart = timeMin - timePadding;
         const timeDomainEnd = timeMax + timePadding;
 
-        const xScale = d3.scaleTime()
-            .domain([ new Date(timeDomainStart * 1000), new Date(timeDomainEnd * 1000) ])
+        const xScale = d3.scaleLinear()
+            .domain([ 0, timeDomainEnd - timeDomainStart])
             .range([ 0, svgWidth ]);
 
         const xAxis = d3.axisBottom(xScale)
-            .ticks(5)
-            .tickFormat(d3.timeFormat("%H:%M:%S.%L")); // Format to show hours, minutes, seconds, milliseconds
+            // .ticks(5)
+            // .tickFormat(d3.timeFormat("%H:%M:%S.%L")); // Format to show hours, minutes, seconds, milliseconds
 
         const yPositions = {
             "A": hostAY,
@@ -385,7 +382,7 @@ export default function TimelineEntry({ entryIndex }) {
 
         // Process packets
         const packets = data.map(packet => {
-            const time = parseFloat(packet._source.layers.frame[ "frame.time_epoch" ]);
+            const time = parseFloat(packet._source.layers.frame[ "frame.time_epoch" ]) - timeDomainStart
             const srcIP = packet._source.layers.ip[ "ip.src" ];
             const dstIP = packet._source.layers.ip[ "ip.dst" ];
             const srcPort = packet._source.layers.tcp ? packet._source.layers.tcp[ "tcp.srcport" ] : packet._source.layers.udp[ "udp.srcport" ];
@@ -459,9 +456,9 @@ export default function TimelineEntry({ entryIndex }) {
             .enter()
             .append("line")
             .attr("class", "packet")
-            .attr("x1", d => xScale(new Date(d.sendTime * 1000)))
+            .attr("x1", d => xScale(d.sendTime))
             .attr("y1", d => yPositions[ d.sourceHost ])
-            .attr("x2", d => xScale(new Date(d.receiveTime * 1000)))
+            .attr("x2", d => xScale(d.receiveTime ))
             .attr("y2", d => yPositions[ d.destHost ])
             .attr("stroke", d => protocolColor(d.l7Protocol))
             .attr("stroke-width", 3) // Increased thickness
@@ -490,9 +487,9 @@ export default function TimelineEntry({ entryIndex }) {
             .attr("transform", `translate(0, ${svgHeight + 10})`)
             .call(
                 d3.axisBottom(xScale)
-                    .ticks(5)
-                    .tickSize(-svgHeight - 10) // Extend grid lines upward
-                    .tickFormat("")
+                    // .ticks(5)
+                    // .tickSize(-svgHeight - 10) // Extend grid lines upward
+                    // .tickFormat("")
             )
             .selectAll(".tick line")
             .attr("stroke", "#e0e0e0")
@@ -531,8 +528,8 @@ export default function TimelineEntry({ entryIndex }) {
                 .attr("stroke-dasharray", "2,2"); // Dotted lines
 
             // Update packet lines
-            packetLines.attr("x1", d => newXScale(new Date(d.sendTime * 1000)))
-                .attr("x2", d => newXScale(new Date(d.receiveTime * 1000)));
+            packetLines.attr("x1", d => newXScale(d.sendTime))
+                .attr("x2", d => newXScale(d.receiveTime));
 
             // Update host lines
             svgGroup.selectAll(".host-line")
