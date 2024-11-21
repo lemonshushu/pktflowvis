@@ -521,8 +521,8 @@ export default function TimelineEntry({ entryIndex }) {
                 d3.select(this).attr("stroke-width", 5);
                 tooltip.transition().duration(200).style("opacity", 1);
                 tooltip.html(`Protocol: ${d.l7Protocol}`)
-                    .style("left", (event.pageX + 5) + "px")
-                    .style("top", (event.pageY - 28) + "px");
+                    .style("left", (event.clientX+5) + "px")
+                    .style("top", (event.clientY-28) + "px");
             })
             .on("mouseout", function () {
                 d3.select(this).attr("stroke-width", 3);
