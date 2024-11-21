@@ -485,16 +485,18 @@ export default function TimelineEntry({ entryIndex }) {
         });
 
         // Define color scale for protocols
-        const protocolSet = new Set();
-        data.forEach(packet => {
-            const layers = Object.keys(packet._source.layers);
-            layers.forEach(layer => protocolSet.add(layer));
-        });
+        // const protocolSet = new Set();
+        // data.forEach(packet => {
+        //     const layers = Object.keys(packet._source.layers);
+        //     layers.forEach(layer => protocolSet.add(layer));
+        // });
+        const l7ProtocolSet = new Set();
+        processedPackets.forEach(packet => l7ProtocolSet.add(packet.l7Protocol));
 
-        protocolSet.forEach(protocol => {
+        l7ProtocolSet.forEach(protocol => {
         // Define arrowhead marker
             svg.append("defs").append("marker")
-                .attr("id", `arrowhead-${entryIndex}-${protocol}`)
+                .attr("id", `arrowhead-${entryIndex}-${protocol.replace(" ","").replace(",","")}`)
                 .attr("viewBox", "0 -5 10 10")
                 .attr("refX", 10)
                 .attr("refY", 0)
@@ -532,7 +534,7 @@ export default function TimelineEntry({ entryIndex }) {
             .attr("y2", d => yPositions[ d.destHost ])
             .attr("stroke", d => d3.interpolateRainbow(protocolColor(stringToNumber(d.l7Protocol))))
             .attr("stroke-width", 3) // Increased thickness
-            .attr("marker-end", d => `url(#${`arrowhead-${entryIndex}-${d.l7Protocol}`})`)
+            .attr("marker-end", d => `url(#${`arrowhead-${entryIndex}-${d.l7Protocol.replace(" ","").replace(",","")}`})`)
             .on("mouseover", function (event, d) {
                 d3.select(this).attr("stroke-width", 5);
                 tooltip.transition().duration(200).style("opacity", 1);
