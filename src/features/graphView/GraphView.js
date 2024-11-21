@@ -6,7 +6,7 @@ import { Navigate } from 'react-router-dom';
 import ControlPanel from './components/ControlPanel';
 
 import { setCurrentView } from '../data/dataSlice';
-import { addEntry, setFormOpts } from '../timelineView/timelineViewSlice';
+import { addEntry, setFormOpts, setShouldFocusLastEntry } from '../timelineView/timelineViewSlice';
 import { 
     setSelectedIP, 
     setSelectedPort, 
@@ -415,6 +415,7 @@ export default function GraphView() {
                     const portB = event.srcElement.__data__.dst_port;
                     dispatch(addEntry({ metadata: { hostA, portA, hostB, portB }, formSelections: { hostA, portA, hostB, portB, radioASelected: true } }));
                     dispatch(setCurrentView('timeline'));
+                    dispatch(setShouldFocusLastEntry(true));
                 });
 
             linkRef.current = link;
@@ -434,6 +435,7 @@ export default function GraphView() {
                     dispatch(addEntry({ metadata: null, formSelections: { hostA: d.ip_addr, portA: d.port, hostB: "", portB: "", radioASelected: true } })); // Add new entry in TimelineView
                     dispatch(setCurrentView('timeline'));
                     d3.selectAll(".tooltip").remove();
+                    dispatch(setShouldFocusLastEntry(true));
                 });
             
             nodeRef.current = node;

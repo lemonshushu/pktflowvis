@@ -39,6 +39,11 @@ export const timelineViewSlice = createSlice({
          */
         propDelays: [],
 
+        /**
+         * Whether to focus on the last entry on view initialization
+         */
+        shouldFocusLastEntry: false,
+
     },
     reducers: {
 
@@ -136,6 +141,13 @@ export const timelineViewSlice = createSlice({
             const {data, index} = action.payload;
             state.propDelays[ index ] = data;
         },
+
+        /**
+         * Set whether to focus on the last entry on view initialization
+         */
+        setShouldFocusLastEntry: (state, action) => {
+            state.shouldFocusLastEntry = action.payload;
+        },
     },
 });
 
@@ -150,6 +162,7 @@ export const {
     setEntryTitle,
     setPropDelay,
     swapFormSelections,
+    setShouldFocusLastEntry,
 } = timelineViewSlice.actions;
 
 export default timelineViewSlice.reducer;

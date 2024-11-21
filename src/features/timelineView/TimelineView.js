@@ -6,17 +6,30 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Navigate } from 'react-router-dom';
 import { setCurrentView } from '../data/dataSlice';
 import TimelineEntry from './components/TimelineEntry';
-import { addEntry } from './timelineViewSlice';
+import { addEntry, setShouldFocusLastEntry } from './timelineViewSlice';
 
 export default function TimelineView() {
     const dispatch = useDispatch();
     const timelineData = useSelector((state) => state.timelineView.timelineData);
     const currentView = useSelector((state) => state.data.currentView);
+    const shouldFocusLastEntry = useSelector((state) => state.timelineView.shouldFocusLastEntry);
 
     useEffect(() => {
         setCurrentView('timeline');
+
+        if (shouldFocusLastEntry) {
+            dispatch(setShouldFocusLastEntry(false));
+            const lastEntry = document.getElementById(`entry-${timelineData.length - 1}`);
+            lastEntry.scrollIntoView({ behavior: "smooth", block: "end", inline: "nearest" });
+
+            // Flash the entry (shadow)
+            lastEntry.style.boxShadow = "0 0 10px 5px lightblue";
+            setTimeout(() => {
+                lastEntry.style.boxShadow = "none";
+            }, 1000);
+        }
     }
-        , [ dispatch ]);
+        , [dispatch, shouldFocusLastEntry, timelineData.length]);
 
     const onNavigateToGraph = () => {
         dispatch(setCurrentView('graph'));
