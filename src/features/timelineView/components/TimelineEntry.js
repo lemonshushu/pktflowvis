@@ -494,7 +494,7 @@ export default function TimelineEntry({ entryIndex }) {
         const tooltip = d3.select(svgRef.current.parentNode)
             .append("div")
             .attr("class", "tooltip")
-            .style("position", "absolute")
+            .style("position", "fixed")
             .style("background", "#f9f9f9")
             .style("padding", "5px")
             .style("border", "1px solid #d3d3d3")
