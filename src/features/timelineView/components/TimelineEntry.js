@@ -423,26 +423,6 @@ export default function TimelineEntry({ entryIndex }) {
             .attr("stroke", "black");
 
 
-        // Define arrowhead marker
-        svg.append("defs").append("marker")
-            .attr("id", `arrowhead-${entryIndex}`)
-            .attr("viewBox", "0 -5 10 10")
-            .attr("refX", 10)
-            .attr("refY", 0)
-            .attr("orient", "auto")
-            .attr("markerWidth", 6)
-            .attr("markerHeight", 6)
-            .append("path")
-            .attr("d", "M0,-5L10,0L0,5")
-            .attr("fill", "currentColor"); // Use current color
-
-        // Define color scale for protocols
-        const protocolSet = new Set();
-        data.forEach(packet => {
-            const layers = Object.keys(packet._source.layers);
-            layers.forEach(layer => protocolSet.add(layer));
-        });
-
         // Map to number between 0 and 1
         const protocolColor = d3.scaleLinear()
             .domain([ 0, 1 ])
@@ -504,6 +484,28 @@ export default function TimelineEntry({ entryIndex }) {
             };
         });
 
+        // Define color scale for protocols
+        const protocolSet = new Set();
+        data.forEach(packet => {
+            const layers = Object.keys(packet._source.layers);
+            layers.forEach(layer => protocolSet.add(layer));
+        });
+
+        protocolSet.forEach(protocol => {
+        // Define arrowhead marker
+            svg.append("defs").append("marker")
+                .attr("id", `arrowhead-${entryIndex}-${protocol}`)
+                .attr("viewBox", "0 -5 10 10")
+                .attr("refX", 10)
+                .attr("refY", 0)
+                .attr("orient", "auto")
+                .attr("markerWidth", 6)
+                .attr("markerHeight", 6)
+                .append("path")
+                .attr("d", "M0,-5L10,0L0,5")
+                .attr("fill", d3.interpolateRainbow(protocolColor(stringToNumber(protocol))));
+        })
+
         // Create tooltip div (hidden by default)
         const tooltip = d3.select(svgRef.current.parentNode)
             .append("div")
@@ -530,7 +532,7 @@ export default function TimelineEntry({ entryIndex }) {
             .attr("y2", d => yPositions[ d.destHost ])
             .attr("stroke", d => d3.interpolateRainbow(protocolColor(stringToNumber(d.l7Protocol))))
             .attr("stroke-width", 3) // Increased thickness
-            .attr("marker-end", `url(#arrowhead-${entryIndex})`)
+            .attr("marker-end", d => `url(#${`arrowhead-${entryIndex}-${d.l7Protocol}`})`)
             .on("mouseover", function (event, d) {
                 d3.select(this).attr("stroke-width", 5);
                 tooltip.transition().duration(200).style("opacity", 1);
