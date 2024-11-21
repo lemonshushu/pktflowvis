@@ -15,6 +15,19 @@ import {
 } from '../timelineViewSlice';
 import "./TimelineEntry.css";
 
+/**
+ * Map string to a number between 0 and 1
+ * @param {string} str - The string to map
+ * @returns {number} - The mapped number
+ */
+const stringToNumber = (str) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return (hash & 0xFFFFFFFF) / 0xFFFFFFFF;
+};
+
 export default function TimelineEntry({ entryIndex }) {
     const dispatch = useDispatch();
     const formOpts = useSelector((state) => state.timelineView.formOpts);
@@ -415,10 +428,11 @@ export default function TimelineEntry({ entryIndex }) {
             const layers = Object.keys(packet._source.layers);
             layers.forEach(layer => protocolSet.add(layer));
         });
-        const protocolList = Array.from(protocolSet);
-        const protocolColor = d3.scaleOrdinal()
-            .domain(protocolList)
-            .range(d3.schemeCategory10.concat(d3.schemeSet3)); // Extend color scheme if needed
+
+        // Map to number between 0 and 1
+        const protocolColor = d3.scaleLinear()
+            .domain([ 0, 1 ])
+            .range([ 0, 1 ]);
 
         // Process packets
         const packets = data.map(packet => {
@@ -520,7 +534,7 @@ export default function TimelineEntry({ entryIndex }) {
             .attr("y1", d => yPositions[ d.sourceHost ])
             .attr("x2", d => xScale(d.receiveTime))
             .attr("y2", d => yPositions[ d.destHost ])
-            .attr("stroke", d => protocolColor(d.l7Protocol))
+            .attr("stroke", d => d3.interpolateRainbow(protocolColor(stringToNumber(d.l7Protocol))))
             .attr("stroke-width", 3) // Increased thickness
             .attr("marker-end", d => `url(#${getMarkerId(protocolColor(d.l7Protocol))})`)
             .on("mouseover", function (event, d) {

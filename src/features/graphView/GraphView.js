@@ -402,12 +402,12 @@ export default function GraphView() {
                 .attr("stroke-width", d => Math.sqrt(d.value))
                 .attr("marker-end", "url(#arrowhead)")
                 // Highlight the link with black stroke on hover && make it thicker
-                .on("mouseover", function (event) {
-                    d3.select(this).attr("stroke", "#000").attr("stroke-width", 2);
-                })
-                .on("mouseout", function (event) {
-                    d3.select(this).attr("stroke", "#999").attr("stroke-width", 1);
-                })
+                // .on("mouseover", function (event) {
+                //     d3.select(this).attr("stroke", "#000").attr("stroke-width", 2);
+                // })
+                // .on("mouseout", function (event) {
+                //     d3.select(this).attr("stroke", "#999").attr("stroke-width", 1);
+                // })
                 .on("click", (event) => {
                     const hostA = event.srcElement.__data__.src_ip;
                     const portA = event.srcElement.__data__.src_port;
@@ -419,6 +419,7 @@ export default function GraphView() {
                 });
 
             linkRef.current = link;
+            svg.on('mousemove', throttledHandleMouseMove);
             
             // Add nodes
             const node = container.append("g")
@@ -618,25 +619,66 @@ export default function GraphView() {
         }
     }, [isShowProtocolsOpen, selectedL4Protocols, selectedL7Protocols, filteringMode]);
 
+    const hoveredLines = new Set();
+
+    const handleMouseMove = (event) => {
+        const [mouseX, mouseY] = d3.pointer(event);
+    
+        const elements = document.elementsFromPoint(event.clientX, event.clientY);
+    
+        const linesUnderMouse = elements.filter(el => el.tagName === 'line' && el.__data__);
+    
+        // mouseover 이벤트 처리
+        linesUnderMouse.forEach(lineElement => {
+            if (!hoveredLines.has(lineElement)) {
+                hoveredLines.add(lineElement);
+                d3.select(lineElement).attr('stroke', '#999').attr('stroke-width', 2);
+            }
+        });
+    
+        // mouseout 이벤트 처리
+        hoveredLines.forEach(lineElement => {
+            if (!linesUnderMouse.includes(lineElement)) {
+                hoveredLines.delete(lineElement);
+                d3.select(lineElement).attr('stroke', '#999').attr('stroke-width', 1);
+            }
+        });
+    }
+
+    const throttle = (func, delay) => {
+        let lastCall = 0;
+        return function(...args) {
+            const now = new Date().getTime();
+            if (now - lastCall < delay) {
+                return;
+            }
+            lastCall = now;
+            return func(...args);
+        };
+    }
+    
+    // handleMouseMove 함수를 쓰로틀링합니다.
+    const throttledHandleMouseMove = throttle(handleMouseMove, 50);
+
     const showCustomContextMenu = (x, y, nodeData) => {
         d3.select(".custom-context-menu").remove();
 
-    // 컨텍스트 메뉴를 위한 div 요소를 생성합니다.
-    const menu = d3.select("body")
-        .append("div")
-        .attr("class", "custom-context-menu")
-        .style("position", "absolute")
-        .style("left", `${x}px`)
-        .style("top", `${y}px`)
-        .style("background", "#fff")
-        .style("border", "1px solid #ccc")
-        .style("padding", "10px")
-        .style("border-radius", "4px")
-        .style("box-shadow", "0px 2px 10px rgba(0,0,0,0.2)")
-        .style("z-index", 1000) // 메뉴가 다른 요소 위에 표시되도록 합니다.
-        .on("mouseleave", () => {
-            menu.remove();
-        });
+        // 컨텍스트 메뉴를 위한 div 요소를 생성합니다.
+        const menu = d3.select("body")
+            .append("div")
+            .attr("class", "custom-context-menu")
+            .style("position", "absolute")
+            .style("left", `${x}px`)
+            .style("top", `${y}px`)
+            .style("background", "#fff")
+            .style("border", "1px solid #ccc")
+            .style("padding", "10px")
+            .style("border-radius", "4px")
+            .style("box-shadow", "0px 2px 10px rgba(0,0,0,0.2)")
+            .style("z-index", 1000) // 메뉴가 다른 요소 위에 표시되도록 합니다.
+            .on("mouseleave", () => {
+                menu.remove();
+            });
 
         const ipAddr = nodeData.ip_addr;
         const port = mode === 'port' ? `:${nodeData.port}` : '';
