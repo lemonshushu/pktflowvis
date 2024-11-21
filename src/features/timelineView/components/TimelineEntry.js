@@ -692,7 +692,7 @@ export default function TimelineEntry({ entryIndex }) {
     };
 
     return (
-        <Card className="text-center mb-3">
+        <Card className="text-center mb-3" id={`entry-${entryIndex}`}>
             <CloseButton className="align-self-end mt-3 me-3" onClick={() => {
                 dispatch(removeEntry(entryIndex));
                 setD3ShouldRender(true);
