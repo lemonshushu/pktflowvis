@@ -1,28 +1,23 @@
 import * as d3 from 'd3';
 import React, { useEffect, useRef } from 'react';
-import { Button } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
-import { Navigate } from 'react-router-dom';
 import ControlPanel from './components/ControlPanel';
 
-import { setCurrentView } from '../data/dataSlice';
 import { addEntry, setFormOpts, setShouldFocusLastEntry } from '../timelineView/timelineViewSlice';
-import { 
-    setSelectedIP, 
-    setSelectedPort, 
-    setIsSimulationStable, 
-    setIsNicknameChangeOpen, 
+import {
     addProtocols,
-    toggleL4Protocol,
-    toggleL7Protocol, 
+    setIsNicknameChangeOpen,
     setIsShowProtocolsOpen,
+    setIsSimulationStable,
+    setSelectedIP,
+    setSelectedPort,
     setShowL4Protocol,
-    setShowL7Protocol
+    setShowL7Protocol,
+    toggleL4Protocol,
+    toggleL7Protocol
 } from './components/controlPanelSlice';
 import { setHostGraphData, setPortGraphData } from './graphViewSlice';
 
-import { faChevronRight } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import './GraphView.css';
 
 export default function GraphView() {
@@ -31,9 +26,8 @@ export default function GraphView() {
     const hostData = useSelector((state) => state.graphView.hostGraphData);
     const portData = useSelector((state) => state.graphView.portGraphData);
     const nicknameMapping = useSelector((state) => state.controlPanel.nicknameMapping);
-    
+
     const mode = useSelector((state) => state.graphView.mode);
-    const currentView = useSelector((state) => state.data.currentView);
     const isSimulationStable = useSelector((state) => state.controlPanel.isSimulationStable);
     const isShowProtocolsOpen = useSelector((state) => state.controlPanel.isShowProtocolsOpen);
     const showL4Protocol = useSelector((state) => state.controlPanel.showL4Protocol);
@@ -98,26 +92,26 @@ export default function GraphView() {
         const allL7Protocols = new Set();
 
         packets.forEach((packet) => {
-            const src_ip = packet._source.layers.ip['ip.src_host'];
-            const dst_ip = packet._source.layers.ip['ip.dst_host'];
+            const src_ip = packet._source.layers.ip[ 'ip.src_host' ];
+            const dst_ip = packet._source.layers.ip[ 'ip.dst_host' ];
             const src_port = packet._source.layers.tcp
-                ? packet._source.layers.tcp['tcp.srcport']
-                : packet._source.layers.udp['udp.srcport'];
+                ? packet._source.layers.tcp[ 'tcp.srcport' ]
+                : packet._source.layers.udp[ 'udp.srcport' ];
             const dst_port = packet._source.layers.tcp
-                ? packet._source.layers.tcp['tcp.dstport']
-                : packet._source.layers.udp['udp.dstport'];
-            const frame_size = Number(packet._source.layers.frame['frame.len']);
+                ? packet._source.layers.tcp[ 'tcp.dstport' ]
+                : packet._source.layers.udp[ 'udp.dstport' ];
+            const frame_size = Number(packet._source.layers.frame[ 'frame.len' ]);
             const l4_proto = packet._source.layers.tcp ? 'TCP' : 'UDP';
             const layers = Object.keys(packet._source.layers);
-            let temp_l7_proto = layers[4] === 'tcp.segments' ? layers[5]?.toUpperCase() : layers[4]?.toUpperCase();
+            let temp_l7_proto = layers[ 4 ] === 'tcp.segments' ? layers[ 5 ]?.toUpperCase() : layers[ 4 ]?.toUpperCase();
             const l7_proto = temp_l7_proto === undefined ? "None" : temp_l7_proto;
 
             allL4Protocols.add(l4_proto);
             allL7Protocols.add(l7_proto);
-    
+
             const src_id = `${src_ip}:${src_port}`;
             const dst_id = `${dst_ip}:${dst_port}`;
-    
+
             // Add source node
             let src_node = data.nodes.find((node) => node.id === src_id);
             if (!src_node) {
@@ -126,13 +120,13 @@ export default function GraphView() {
                     ip_addr: src_ip,
                     port: src_port,
                     traffic_volume: frame_size,
-                    l4_proto: new Set([l4_proto]),
-                    l7_proto: new Set([l7_proto]),
+                    l4_proto: new Set([ l4_proto ]),
+                    l7_proto: new Set([ l7_proto ]),
                 };
                 data.nodes.push(src_node);
 
                 if (!timelineViewFormOpts.find((port) => port.ip_addr === src_ip)) {
-                    timelineViewFormOpts.push({ ip_addr: src_ip, ports: ['', src_port] });
+                    timelineViewFormOpts.push({ ip_addr: src_ip, ports: [ '', src_port ] });
                 } else {
                     timelineViewFormOpts
                         .find((port) => port.ip_addr === src_ip)
@@ -141,7 +135,7 @@ export default function GraphView() {
             } else {
                 src_node.traffic_volume += frame_size;
                 src_node.l4_proto.add(l4_proto);
-                
+
                 // l7_proto 처리
                 if (l7_proto === 'None') {
                     // 이미 다른 프로토콜이 없으면 'None'을 추가
@@ -164,13 +158,13 @@ export default function GraphView() {
                     ip_addr: dst_ip,
                     port: dst_port,
                     traffic_volume: frame_size,
-                    l4_proto: new Set([l4_proto]),
-                    l7_proto: new Set([l7_proto]),
+                    l4_proto: new Set([ l4_proto ]),
+                    l7_proto: new Set([ l7_proto ]),
                 };
                 data.nodes.push(dst_node);
 
                 if (!timelineViewFormOpts.find((port) => port.ip_addr === dst_ip)) {
-                    timelineViewFormOpts.push({ ip_addr: dst_ip, ports: ['', dst_port] });
+                    timelineViewFormOpts.push({ ip_addr: dst_ip, ports: [ '', dst_port ] });
                 } else {
                     timelineViewFormOpts
                         .find((port) => port.ip_addr === dst_ip)
@@ -179,7 +173,7 @@ export default function GraphView() {
             } else {
                 dst_node.traffic_volume += frame_size;
                 dst_node.l4_proto.add(l4_proto);
-                
+
                 // l7_proto 처리
                 if (l7_proto === 'None') {
                     if (dst_node.l7_proto.size === 0) {
@@ -192,12 +186,12 @@ export default function GraphView() {
                     dst_node.l7_proto.add(l7_proto);
                 }
             }
-    
+
             // Add link
             let link = data.links.find(
                 (link) => link.source === src_id && link.target === dst_id
             );
-    
+
             if (!link) {
                 link = {
                     source: src_id,
@@ -206,8 +200,8 @@ export default function GraphView() {
                     src_port: src_port,
                     dst_ip: dst_ip,
                     dst_port: dst_port,
-                    l4_proto: new Set([l4_proto]),
-                    l7_proto: new Set([l7_proto]),
+                    l4_proto: new Set([ l4_proto ]),
+                    l7_proto: new Set([ l7_proto ]),
                 };
                 data.links.push(link);
             } else {
@@ -239,7 +233,7 @@ export default function GraphView() {
             node.l7_proto = Array.from(node.l7_proto);
         });
 
-         // Convert Sets to Arrays before storing
+        // Convert Sets to Arrays before storing
         data.links.forEach((link) => {
             link.l4_proto = Array.from(link.l4_proto);
             link.l7_proto = Array.from(link.l7_proto);
@@ -261,11 +255,6 @@ export default function GraphView() {
         console.log(data);
         return data;
     };
-
-
-    useEffect(() => {
-        setCurrentView('graph');
-    }, [ dispatch ]);
 
     useEffect(() => {
         if (packets && !hostData) {
@@ -398,7 +387,7 @@ export default function GraphView() {
                 .selectAll("line")
                 .data(links)
                 .join("line")
-                .attr('opacity', d=>getOpacity(d.l4_proto, d.l7_proto))
+                .attr('opacity', d => getOpacity(d.l4_proto, d.l7_proto))
                 .attr("stroke-width", d => Math.sqrt(d.value))
                 .attr("marker-end", "url(#arrowhead)")
                 // Highlight the link with black stroke on hover && make it thicker
@@ -414,13 +403,12 @@ export default function GraphView() {
                     const hostB = event.srcElement.__data__.dst_ip;
                     const portB = event.srcElement.__data__.dst_port;
                     dispatch(addEntry({ metadata: { hostA, portA, hostB, portB }, formSelections: { hostA, portA, hostB, portB, radioASelected: true } }));
-                    dispatch(setCurrentView('timeline'));
                     dispatch(setShouldFocusLastEntry(true));
                 });
 
             linkRef.current = link;
             svg.on('mousemove', throttledHandleMouseMove);
-            
+
             // Add nodes
             const node = container.append("g")
                 // Removed unnecessary white strokes
@@ -434,11 +422,10 @@ export default function GraphView() {
                 .on("dblclick.zoom", null) // Prevent zoom on double-click on nodes
                 .on("click", (event, d) => {
                     dispatch(addEntry({ metadata: null, formSelections: { hostA: d.ip_addr, portA: d.port, hostB: "", portB: "", radioASelected: true } })); // Add new entry in TimelineView
-                    dispatch(setCurrentView('timeline'));
                     d3.selectAll(".tooltip").remove();
                     dispatch(setShouldFocusLastEntry(true));
                 });
-            
+
             nodeRef.current = node;
 
             // Add tooltips
@@ -484,7 +471,7 @@ export default function GraphView() {
                 .data(nodes)
                 .join("text")
                 .text(d => getNicknameLabel(d, mode))
-                .attr('fill-opacity', d=> getOpacity(d.l4_proto, d.l7_proto))
+                .attr('fill-opacity', d => getOpacity(d.l4_proto, d.l7_proto))
                 .attr("font-size", "10px")
                 .attr("fill", "#555")
                 .attr("dy", "-1em")
@@ -492,7 +479,7 @@ export default function GraphView() {
                 .on("click", (event) => {
                     event.stopPropagation();
                 });
-            
+
             labelsRef.current = labels;
 
             simulation.stop();
@@ -617,17 +604,17 @@ export default function GraphView() {
                 labelsRef.current.attr('fill-opacity', d => getOpacity(d.l4_proto, d.l7_proto));
             }
         }
-    }, [isShowProtocolsOpen, selectedL4Protocols, selectedL7Protocols, filteringMode]);
+    }, [ isShowProtocolsOpen, selectedL4Protocols, selectedL7Protocols, filteringMode ]);
 
     const hoveredLines = new Set();
 
     const handleMouseMove = (event) => {
-        const [mouseX, mouseY] = d3.pointer(event);
-    
+        const [ mouseX, mouseY ] = d3.pointer(event);
+
         const elements = document.elementsFromPoint(event.clientX, event.clientY);
-    
+
         const linesUnderMouse = elements.filter(el => el.tagName === 'line' && el.__data__);
-    
+
         // mouseover 이벤트 처리
         linesUnderMouse.forEach(lineElement => {
             if (!hoveredLines.has(lineElement)) {
@@ -635,7 +622,7 @@ export default function GraphView() {
                 d3.select(lineElement).attr('stroke', '#999').attr('stroke-width', 2);
             }
         });
-    
+
         // mouseout 이벤트 처리
         hoveredLines.forEach(lineElement => {
             if (!linesUnderMouse.includes(lineElement)) {
@@ -643,11 +630,11 @@ export default function GraphView() {
                 d3.select(lineElement).attr('stroke', '#999').attr('stroke-width', 1);
             }
         });
-    }
+    };
 
     const throttle = (func, delay) => {
         let lastCall = 0;
-        return function(...args) {
+        return function (...args) {
             const now = new Date().getTime();
             if (now - lastCall < delay) {
                 return;
@@ -655,8 +642,8 @@ export default function GraphView() {
             lastCall = now;
             return func(...args);
         };
-    }
-    
+    };
+
     // handleMouseMove 함수를 쓰로틀링합니다.
     const throttledHandleMouseMove = throttle(handleMouseMove, 50);
 
@@ -687,14 +674,14 @@ export default function GraphView() {
         menu.append("div")
             .text(`Change Nickname of ${ipPortPair}`)
             .style("margin-bottom", "5px")
-            .on('click', ()=> {
+            .on('click', () => {
                 dispatch(setSelectedIP(ipAddr));
                 if (mode === 'port') {
                     dispatch(setSelectedPort(nodeData.port));
                 }
                 dispatch(setIsNicknameChangeOpen(true));
             });
-        
+
 
         if (port) {
             menu.append("div")
@@ -702,8 +689,8 @@ export default function GraphView() {
                 .style("margin-bottom", "5px")
                 .on('click', () => {
                     nodeData.l4_proto.forEach((protocol) => dispatch(toggleL4Protocol(protocol)));
-                    if (!isShowProtocolsOpen) {dispatch(setIsShowProtocolsOpen(true));}
-                    if (!showL4Protocol) {dispatch(setShowL4Protocol(true));}
+                    if (!isShowProtocolsOpen) { dispatch(setIsShowProtocolsOpen(true)); }
+                    if (!showL4Protocol) { dispatch(setShowL4Protocol(true)); }
                 });
 
             menu.append("div")
@@ -711,25 +698,25 @@ export default function GraphView() {
                 .style("margin-bottom", "5px")
                 .on('click', () => {
                     nodeData.l7_proto.forEach((protocol) => dispatch(toggleL7Protocol(protocol)));
-                    if (!isShowProtocolsOpen) {dispatch(setIsShowProtocolsOpen(true));}
-                    if (!showL7Protocol) {dispatch(setShowL7Protocol(true));}
+                    if (!isShowProtocolsOpen) { dispatch(setIsShowProtocolsOpen(true)); }
+                    if (!showL7Protocol) { dispatch(setShowL7Protocol(true)); }
                 });
         }
-    }
+    };
 
     const getOpacity = (l4_proto, l7_proto) => {
         if (isShowProtocolsOpen && mode === 'port') {
             let isL4Selected = false;
             let isL7Selected = false;
             // console.log(l7_proto);
-            l4_proto.forEach((protocol) => {isL4Selected = isL4Selected || selectedL4Protocols[protocol];});
-            l7_proto.forEach((protocol) => {isL7Selected = isL7Selected || selectedL7Protocols[protocol];});
+            l4_proto.forEach((protocol) => { isL4Selected = isL4Selected || selectedL4Protocols[ protocol ]; });
+            l7_proto.forEach((protocol) => { isL7Selected = isL7Selected || selectedL7Protocols[ protocol ]; });
 
             return (filteringMode === "or" ? isL4Selected || isL7Selected : isL4Selected && isL7Selected) ? 1 : 0.1;
         } else {
             return 1;
         }
-    }
+    };
 
     const getNicknameLabel = (node, mode) => {
         if (mode === 'host') {
@@ -745,7 +732,7 @@ export default function GraphView() {
             return `${nicknameMapping[ node.ip_addr ] ? `${nicknameMapping[ node.ip_addr ]}<br>` : ''}IP: ${node.ip_addr}<br>Traffic Volume: ${node.traffic_volume}`;
         } else {
             const key = `${node.ip_addr}:${node.port}`;
-            
+
             // L7 프로토콜 처리
             let l7_proto_display;
             if (Array.isArray(node.l7_proto)) {
@@ -787,29 +774,11 @@ export default function GraphView() {
         }
     }
 
-    const onNavigateToTimeline = () => {
-        dispatch(setCurrentView('timeline'));
 
-        // Clear all tooltips
-        d3.selectAll(".tooltip").remove();
-    };
-
-
-    switch (currentView) {
-        case 'fileUpload':
-            return <Navigate to="/" />;
-        case 'graph':
-            return (
-                <div style={{ position: "relative", width: "100vw", height: "100vh" }}>
-                    <ControlPanel resetAllNodes={resetAllNodes} />
-                    <div style={{ position: "absolute", right: 40, top: "50vh", zIndex: 10 }}>
-                        <Button className="rounded-circle" variant="light" onClick={onNavigateToTimeline} ><FontAwesomeIcon icon={faChevronRight} size="2xl" /></Button>
-                    </div>
-                    <svg ref={graphRef} style={{ width: '100%', height: '100%' }} />
-                </div>);
-        case 'timeline':
-            return <Navigate to="/timeline" />;
-        default:
-            break;
-    }
+    return (
+        <div>
+            <ControlPanel resetAllNodes={resetAllNodes} />
+            <svg ref={graphRef} style={{ width: '50vw', height: '100vh' }} />
+        </div>
+    );
 }

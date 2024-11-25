@@ -57,14 +57,14 @@ export default function FileUpload() {
     useEffect(() => {
         return () => {
             if (packets) {
-                dispatch(setCurrentView('graph'));
+                dispatch(setCurrentView('multi'));
             }
         };
     }, [packets, dispatch]);
 
 
     return (
-        currentView === 'graph' ? <Navigate to="/graph" /> :
+        currentView === 'multi' ? <Navigate to="/vis" /> :
         <div className="d-flex align-items-center justify-content-center vh-100">
             <div>
                 <Form.Group controlId="formFile" className="mb-3" width="50%">
