@@ -1,6 +1,6 @@
 import { faPlus } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Container, Form, Navbar } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
 import TimelineEntry from './components/TimelineEntry';
@@ -10,6 +10,7 @@ export default function TimelineView() {
     const dispatch = useDispatch();
     const timelineData = useSelector((state) => state.timelineView.timelineData);
     const shouldFocusLastEntry = useSelector((state) => state.timelineView.shouldFocusLastEntry);
+    const [ timelineVisible, setTimelineVisible ] = useState(true);
 
     useEffect(() => {
 
@@ -27,11 +28,13 @@ export default function TimelineView() {
     }, [ dispatch, shouldFocusLastEntry, timelineData.length ]);
 
 
+
+
     return (
         <div>
             <Navbar fixed="top" className="bg-body-tertiary d-flex justify-content-end pe-5">
                 <Form.Check type="switch" label="Align Time" className="ms-3 text-start me-4" />
-                <div className="me-5">
+                <div className="me-4">
                     <Button className="rounded-circle" variant="light" onClick={
                         () => {
                             dispatch(addEntry({ metadata: null, formSelections: null }));
@@ -40,14 +43,15 @@ export default function TimelineView() {
                         <FontAwesomeIcon icon={faPlus} size="l" />
                     </Button>  Add entry
                 </div>
+                <Button variant="light" onClick={() => { setTimelineVisible(!timelineVisible); }}>({timelineVisible ? "Hide" : "Show"} Timeline)</Button>
             </Navbar>
-            <Container>
+            {timelineVisible ? (<Container>
                 {timelineData.map((entry, index) => {
                     return (
                         <TimelineEntry entryIndex={index} key={index} />
                     );
                 })}
-            </Container>
+            </Container>) : null}
         </div>
     );
 
