@@ -496,7 +496,7 @@ export default function TimelineEntry({ entryIndex }) {
         l7ProtocolSet.forEach(protocol => {
         // Define arrowhead marker
             svg.append("defs").append("marker")
-                .attr("id", `arrowhead-${entryIndex}-${protocol.replace(" ","").replace(",","")}`)
+                .attr("id", `arrowhead-${entryIndex}-${protocol.replace(/[ ,.]/g, "")}`)
                 .attr("viewBox", "0 -5 10 10")
                 .attr("refX", 10)
                 .attr("refY", 0)
@@ -534,7 +534,7 @@ export default function TimelineEntry({ entryIndex }) {
             .attr("y2", d => yPositions[ d.destHost ])
             .attr("stroke", d => d3.interpolateRainbow(protocolColor(stringToNumber(d.l7Protocol))))
             .attr("stroke-width", 3) // Increased thickness
-            .attr("marker-end", d => `url(#${`arrowhead-${entryIndex}-${d.l7Protocol.replace(" ","").replace(",","")}`})`)
+            .attr("marker-end", d => `url(#${`arrowhead-${entryIndex}-${d.l7Protocol.replace(/[ ,.]/g, "")}`})`)
             .on("mouseover", function (event, d) {
                 d3.select(this).attr("stroke-width", 5);
                 tooltip.transition().duration(200).style("opacity", 1);
