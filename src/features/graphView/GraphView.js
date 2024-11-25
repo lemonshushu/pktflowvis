@@ -263,7 +263,7 @@ export default function GraphView() {
         }));
         console.log(data);
         return data;
-    };
+    }, [dispatch, packets]);
 
     useEffect(() => {
         if (packets && !hostData) {
