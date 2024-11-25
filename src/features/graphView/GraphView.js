@@ -778,7 +778,7 @@ export default function GraphView() {
     return (
         <div>
             <ControlPanel resetAllNodes={resetAllNodes} />
-            <svg ref={graphRef} style={{ width: '50vw', height: '100vh' }} />
+            <svg ref={graphRef} style={{ width: '100vw', height: '100vh' }} />
         </div>
     );
 }
