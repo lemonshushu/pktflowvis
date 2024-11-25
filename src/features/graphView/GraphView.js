@@ -1,28 +1,23 @@
 import * as d3 from 'd3';
 import React, { useCallback, useEffect, useRef } from 'react';
-import { Button } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
-import { Navigate } from 'react-router-dom';
 import ControlPanel from './components/ControlPanel';
 
-import { setCurrentView } from '../data/dataSlice';
 import { addEntry, setFormOpts, setShouldFocusLastEntry } from '../timelineView/timelineViewSlice';
 import {
+    addProtocols,
+    setIsNicknameChangeOpen,
+    setIsShowProtocolsOpen,
+    setIsSimulationStable,
     setSelectedIP,
     setSelectedPort,
-    setIsSimulationStable,
-    setIsNicknameChangeOpen,
-    addProtocols,
-    toggleL4Protocol,
-    toggleL7Protocol,
-    setIsShowProtocolsOpen,
     setShowL4Protocol,
-    setShowL7Protocol
+    setShowL7Protocol,
+    toggleL4Protocol,
+    toggleL7Protocol
 } from './components/controlPanelSlice';
 import { setHostGraphData, setPortGraphData } from './graphViewSlice';
 
-import { faChevronRight } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import './GraphView.css';
 
 export default function GraphView() {
@@ -32,8 +27,8 @@ export default function GraphView() {
     const portData = useSelector((state) => state.graphView.portGraphData);
     const nicknameMapping = useSelector((state) => state.controlPanel.nicknameMapping);
 
+
     const mode = useSelector((state) => state.graphView.mode);
-    const currentView = useSelector((state) => state.data.currentView);
     const isSimulationStable = useSelector((state) => state.controlPanel.isSimulationStable);
     const isShowProtocolsOpen = useSelector((state) => state.controlPanel.isShowProtocolsOpen);
     const showL4Protocol = useSelector((state) => state.controlPanel.showL4Protocol);
@@ -268,12 +263,7 @@ export default function GraphView() {
         }));
         console.log(data);
         return data;
-    }, [ dispatch, packets ]);
-
-
-    useEffect(() => {
-        setCurrentView('graph');
-    }, [ dispatch ]);
+    }, [dispatch, packets]);
 
     useEffect(() => {
         if (packets && !hostData) {
@@ -422,7 +412,6 @@ export default function GraphView() {
                     const hostB = event.srcElement.__data__.dst_ip;
                     const portB = event.srcElement.__data__.dst_port;
                     dispatch(addEntry({ metadata: { hostA, portA, hostB, portB }, formSelections: { hostA, portA, hostB, portB, radioASelected: true } }));
-                    dispatch(setCurrentView('timeline'));
                     dispatch(setShouldFocusLastEntry(true));
                 });
 
@@ -442,7 +431,6 @@ export default function GraphView() {
                 .on("dblclick.zoom", null) // Prevent zoom on double-click on nodes
                 .on("click", (event, d) => {
                     dispatch(addEntry({ metadata: null, formSelections: { hostA: d.ip_addr, portA: d.port, hostB: "", portB: "", radioASelected: true } })); // Add new entry in TimelineView
-                    dispatch(setCurrentView('timeline'));
                     d3.selectAll(".tooltip").remove();
                     dispatch(setShouldFocusLastEntry(true));
                 });
@@ -828,29 +816,11 @@ export default function GraphView() {
         }
     }
 
-    const onNavigateToTimeline = () => {
-        dispatch(setCurrentView('timeline'));
 
-        // Clear all tooltips
-        d3.selectAll(".tooltip").remove();
-    };
-
-
-    switch (currentView) {
-        case 'fileUpload':
-            return <Navigate to="/" />;
-        case 'graph':
-            return (
-                <div style={{ position: "relative", width: "100vw", height: "100vh" }}>
-                    <ControlPanel resetAllNodes={resetAllNodes} />
-                    <div style={{ position: "absolute", right: 40, top: "50vh", zIndex: 10 }}>
-                        <Button className="rounded-circle" variant="light" onClick={onNavigateToTimeline} ><FontAwesomeIcon icon={faChevronRight} size="2xl" /></Button>
-                    </div>
-                    <svg ref={graphRef} style={{ width: '100%', height: '100%' }} />
-                </div>);
-        case 'timeline':
-            return <Navigate to="/timeline" />;
-        default:
-            break;
-    }
+    return (
+        <div>
+            <ControlPanel resetAllNodes={resetAllNodes} />
+            <svg ref={graphRef} style={{ width: '100vw', height: '100vh' }} />
+        </div>
+    );
 }
