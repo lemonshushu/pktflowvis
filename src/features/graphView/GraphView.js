@@ -1,5 +1,5 @@
 import * as d3 from 'd3';
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import ControlPanel from './components/ControlPanel';
 
@@ -27,6 +27,7 @@ export default function GraphView() {
     const portData = useSelector((state) => state.graphView.portGraphData);
     const nicknameMapping = useSelector((state) => state.controlPanel.nicknameMapping);
 
+
     const mode = useSelector((state) => state.graphView.mode);
     const isSimulationStable = useSelector((state) => state.controlPanel.isSimulationStable);
     const isShowProtocolsOpen = useSelector((state) => state.controlPanel.isShowProtocolsOpen);
@@ -52,7 +53,7 @@ export default function GraphView() {
 
     const dispatch = useDispatch();
 
-    const initHostData = () => {
+    const initHostData = useCallback(() => {
         // Initialize host data with nodes and links
         const data = { nodes: [], links: [] };
 
@@ -77,14 +78,20 @@ export default function GraphView() {
 
             // Add link
             if (!data.links.find(link => link.src_ip === src_ip && link.dst_ip === dst_ip)) {
-                data.links.push({ source: src_ip, target: dst_ip, src_ip: src_ip, dst_ip: dst_ip });
+                data.links.push({ source: src_ip, target: dst_ip, src_ip: src_ip, dst_ip: dst_ip, traffic_volume: frame_size });
+            } else {
+                data.links.find(link => link.src_ip === src_ip && link.dst_ip === dst_ip).traffic_volume += frame_size;
             }
         });
 
         return data;
-    };
+    }, [ packets ]);
 
-    const initPortData = () => {
+    const TrafficVolumeToStrokeWidth = ((traffic_volume) => {
+        return 0.5*Math.log10(traffic_volume);
+    });
+
+    const initPortData = useCallback(() => {
         // Initialize port data with nodes and links
         const data = { nodes: [], links: [] };
         const timelineViewFormOpts = [ { ip_addr: "", ports: [ "" ] } ];
@@ -202,10 +209,12 @@ export default function GraphView() {
                     dst_port: dst_port,
                     l4_proto: new Set([ l4_proto ]),
                     l7_proto: new Set([ l7_proto ]),
+                    traffic_volume: frame_size,
                 };
                 data.links.push(link);
             } else {
                 link.l4_proto.add(l4_proto);
+                link.traffic_volume += frame_size;
                 // Handle L7 protocol 'None' case
                 if (l7_proto === 'None') {
                     if (link.l7_proto.size === 0) {
@@ -261,7 +270,7 @@ export default function GraphView() {
             dispatch(setHostGraphData(initHostData()));
             dispatch(setPortGraphData(initPortData()));
         }
-    }, [ dispatch, hostData, portData ]);
+    }, [ dispatch, hostData, initHostData, initPortData, packets, portData ]);
 
     useEffect(() => {
         if (!hostData || !portData) return;
@@ -388,7 +397,7 @@ export default function GraphView() {
                 .data(links)
                 .join("line")
                 .attr('opacity', d => getOpacity(d.l4_proto, d.l7_proto))
-                .attr("stroke-width", d => Math.sqrt(d.value))
+                .attr("stroke-width", d => TrafficVolumeToStrokeWidth(d.traffic_volume))
                 .attr("marker-end", "url(#arrowhead)")
                 // Highlight the link with black stroke on hover && make it thicker
                 // .on("mouseover", function (event) {
@@ -442,7 +451,7 @@ export default function GraphView() {
             node.on("mouseover", (event, d) => {
                 tooltip
                     .style("opacity", 1)
-                    .html(getTooltipContent(d, mode));
+                    .html(getTooltipContentNode(d, mode));
 
                 // Highlight the node with outline on hover
                 d3.select(event.target).attr("stroke", "#000");
@@ -464,6 +473,17 @@ export default function GraphView() {
 
                     showCustomContextMenu(event.pageX, event.pageY, d);
                 });
+
+            link.on("mouseover", (event, d) => {
+                tooltip
+                    .style("opacity", 1)
+                    .html(getTooltipContentLink(d));
+            }).on("mousemove", event => {
+                tooltip.style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 20) + "px");
+            }).on("mouseout", () => {
+                tooltip.style("opacity", 0);
+            });
 
             // Add labels
             const labels = container.append("g")
@@ -580,7 +600,7 @@ export default function GraphView() {
             .on("mouseover", (event, d) => {
                 tooltip
                     .style("opacity", 1)
-                    .html(getTooltipContent(d, mode));
+                    .html(getTooltipContentNode(d, mode));
             })
             .on("mousemove", event => {
                 tooltip
@@ -619,7 +639,7 @@ export default function GraphView() {
         linesUnderMouse.forEach(lineElement => {
             if (!hoveredLines.has(lineElement)) {
                 hoveredLines.add(lineElement);
-                d3.select(lineElement).attr('stroke', '#999').attr('stroke-width', 2);
+                d3.select(lineElement).attr('stroke', '#999').attr('stroke-width', 2 * TrafficVolumeToStrokeWidth(lineElement.__data__.traffic_volume));
             }
         });
 
@@ -627,7 +647,7 @@ export default function GraphView() {
         hoveredLines.forEach(lineElement => {
             if (!linesUnderMouse.includes(lineElement)) {
                 hoveredLines.delete(lineElement);
-                d3.select(lineElement).attr('stroke', '#999').attr('stroke-width', 1);
+                d3.select(lineElement).attr('stroke', '#999').attr('stroke-width', TrafficVolumeToStrokeWidth(lineElement.__data__.traffic_volume));
             }
         });
     };
@@ -727,7 +747,7 @@ export default function GraphView() {
         }
     };
 
-    const getTooltipContent = (node, mode) => {
+    const getTooltipContentNode = (node, mode) => {
         if (mode === 'host') {
             return `${nicknameMapping[ node.ip_addr ] ? `${nicknameMapping[ node.ip_addr ]}<br>` : ''}IP: ${node.ip_addr}<br>Traffic Volume: ${node.traffic_volume}`;
         } else {
@@ -749,6 +769,28 @@ export default function GraphView() {
             }
 
             return `${nicknameMapping[ key ] ? `${nicknameMapping[ key ]}<br>` : ''}IP: ${node.ip_addr}<br>Port: ${node.port}<br>Traffic Volume: ${node.traffic_volume}<br>L4 Protocol: ${node.l4_proto.join(", ")}<br>L7 Protocol: ${l7_proto_display}`;
+        }
+    };
+
+    const getTooltipContentLink = (link) => {
+        if (mode === 'host') {
+            return `Traffic Volume: ${link.traffic_volume}`;
+        } else {
+            let l7_proto_display;
+            if (Array.isArray(link.l7_proto)) {
+                if (link.l7_proto.length > 1) {
+                    // 'None'을 제외한 프로토콜 리스트 생성
+                    l7_proto_display = link.l7_proto.filter((proto) => proto !== 'None');
+                } else {
+                    l7_proto_display = link.l7_proto;
+                }
+                // 배열을 문자열로 변환
+                l7_proto_display = l7_proto_display.join(', ');
+            } else {
+                l7_proto_display = link.l7_proto;
+            }
+
+            return `Traffic Volume: ${link.traffic_volume}<br>L4 Protocol: ${link.l4_proto.join(", ")}<br>L7 Protocol: ${l7_proto_display}`;
         }
     };
 
