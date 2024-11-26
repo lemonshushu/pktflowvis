@@ -523,8 +523,8 @@ export default function GraphView() {
                     .text(d => d.ip_addr)
                     .attr("font-size", "12px")
                     .attr("fill", "#555")
-                    .attr("dy", "-1em")
-                    // .attr("text-anchor", "left")
+                    .attr("dx", "5em")
+                    .attr("text-anchor", "middle")
                     .attr("font-weight", "bold")
                     .attr("x", d => d.x)
                     .attr("y", d => d.y);
