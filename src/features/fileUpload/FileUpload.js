@@ -55,11 +55,9 @@ export default function FileUpload() {
     };
 
     useEffect(() => {
-        return () => {
-            if (packets) {
-                dispatch(setCurrentView('multi'));
-            }
-        };
+        if (packets) {
+            dispatch(setCurrentView('multi'));
+        }
     }, [packets, dispatch]);
 
 
