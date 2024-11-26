@@ -588,6 +588,41 @@ export default function GraphView() {
         }
 
     }, [ hostData, portData, mode ]);
+    
+    const getNicknameLabel = useCallback((node, mode) => {
+        if (mode === 'host') {
+            return nicknameMapping[ node.ip_addr ] || node.ip_addr;
+        } else {
+            const key = `${node.ip_addr}:${node.port}`;
+            return nicknameMapping[ key ] || `${node.ip_addr}:${node.port}`;
+        }
+    }, [ nicknameMapping ]);
+
+    const getTooltipContentNode = useCallback((node, mode) => {
+        if (mode === 'host') {
+            return `${nicknameMapping[ node.ip_addr ] ? `${nicknameMapping[ node.ip_addr ]}<br>` : ''}IP: ${node.ip_addr}<br>Traffic Volume: ${node.traffic_volume}`;
+        } else {
+            const key = `${node.ip_addr}:${node.port}`;
+
+            // L7 프로토콜 처리
+            let l7_proto_display;
+            if (Array.isArray(node.l7_proto)) {
+                if (node.l7_proto.length > 1) {
+                    // 'None'을 제외한 프로토콜 리스트 생성
+                    l7_proto_display = node.l7_proto.filter((proto) => proto !== 'None');
+                } else {
+                    l7_proto_display = node.l7_proto;
+                }
+                // 배열을 문자열로 변환
+                l7_proto_display = l7_proto_display.join(', ');
+            } else {
+                l7_proto_display = node.l7_proto;
+            }
+
+            return `${nicknameMapping[ key ] ? `${nicknameMapping[ key ]}<br>` : ''}IP: ${node.ip_addr}<br>Port: ${node.port}<br>Traffic Volume: ${node.traffic_volume}<br>L4 Protocol: ${node.l4_proto.join(", ")}<br>L7 Protocol: ${l7_proto_display}`;
+        }
+    }, [ nicknameMapping ]);
+
 
     useEffect(() => {
         if (!hostData || !portData) return;
@@ -610,7 +645,7 @@ export default function GraphView() {
             .on("mouseout", () => {
                 tooltip.style("opacity", 0);
             });
-    }, [ nicknameMapping, mode ]);
+    }, [nicknameMapping, mode, hostData, portData, getNicknameLabel, getTooltipContentNode]);
 
     useEffect(() => {
         if (nodeRef.current && linkRef.current) {
@@ -735,40 +770,6 @@ export default function GraphView() {
             return (filteringMode === "or" ? isL4Selected || isL7Selected : isL4Selected && isL7Selected) ? 1 : 0.1;
         } else {
             return 1;
-        }
-    };
-
-    const getNicknameLabel = (node, mode) => {
-        if (mode === 'host') {
-            return nicknameMapping[ node.ip_addr ] || node.ip_addr;
-        } else {
-            const key = `${node.ip_addr}:${node.port}`;
-            return nicknameMapping[ key ] || `${node.ip_addr}:${node.port}`;
-        }
-    };
-
-    const getTooltipContentNode = (node, mode) => {
-        if (mode === 'host') {
-            return `${nicknameMapping[ node.ip_addr ] ? `${nicknameMapping[ node.ip_addr ]}<br>` : ''}IP: ${node.ip_addr}<br>Traffic Volume: ${node.traffic_volume}`;
-        } else {
-            const key = `${node.ip_addr}:${node.port}`;
-
-            // L7 프로토콜 처리
-            let l7_proto_display;
-            if (Array.isArray(node.l7_proto)) {
-                if (node.l7_proto.length > 1) {
-                    // 'None'을 제외한 프로토콜 리스트 생성
-                    l7_proto_display = node.l7_proto.filter((proto) => proto !== 'None');
-                } else {
-                    l7_proto_display = node.l7_proto;
-                }
-                // 배열을 문자열로 변환
-                l7_proto_display = l7_proto_display.join(', ');
-            } else {
-                l7_proto_display = node.l7_proto;
-            }
-
-            return `${nicknameMapping[ key ] ? `${nicknameMapping[ key ]}<br>` : ''}IP: ${node.ip_addr}<br>Port: ${node.port}<br>Traffic Volume: ${node.traffic_volume}<br>L4 Protocol: ${node.l4_proto.join(", ")}<br>L7 Protocol: ${l7_proto_display}`;
         }
     };
 
