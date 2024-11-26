@@ -428,7 +428,6 @@ export default function GraphView() {
                 .attr("r", d => sizeScale(d.traffic_volume))
                 .attr("fill", d => colorScale(d.ip_addr))
                 // .on("dblclick", resetNodePosition)
-                .on("dblclick.zoom", null) // Prevent zoom on double-click on nodes
                 .on("click", (event, d) => {
                     dispatch(addEntry({ metadata: null, formSelections: { hostA: d.ip_addr, portA: d.port, hostB: "", portB: "", radioASelected: true } })); // Add new entry in TimelineView
                     d3.selectAll(".tooltip").remove();
@@ -486,7 +485,7 @@ export default function GraphView() {
             });
 
             // Add labels
-            const labels = container.append("g")
+            const labels = container.append("g").attr("id", "labels")
                 .selectAll("text")
                 .data(nodes)
                 .join("text")
@@ -501,6 +500,35 @@ export default function GraphView() {
                 });
 
             labelsRef.current = labels;
+
+            // If there are more than 5 nodes that have the same IP address, add an IP address label in the center of the nodes
+            if (mode === 'port') {
+                const ipAddrs = Array.from(new Set(nodes.map(d => d.ip_addr)));
+                const ipAddrsWithMultipleNodes = []; // {ip_addr: string, x: number, y: number}[]
+                ipAddrs.forEach(ipAddr => {
+                    const nodesWithSameIp = nodes.filter(d => d.ip_addr === ipAddr);
+                    if (nodesWithSameIp.length > 5) {
+                        const x = d3.mean(nodesWithSameIp, d => d.x);
+                        const y = d3.mean(nodesWithSameIp, d => d.y);
+                        ipAddrsWithMultipleNodes.push({ ip_addr: ipAddr, x, y });
+                    }
+                });
+
+                // Print ipAddrsWithMultipleNodes
+                console.log(ipAddrsWithMultipleNodes);
+                container.append("g").attr("id", "ipAddrLabels")
+                    .selectAll("text")
+                    .data(ipAddrsWithMultipleNodes)
+                    .join("text")
+                    .text(d => d.ip_addr)
+                    .attr("font-size", "12px")
+                    .attr("fill", "#555")
+                    .attr("dy", "-1em")
+                    // .attr("text-anchor", "left")
+                    .attr("font-weight", "bold")
+                    .attr("x", d => d.x)
+                    .attr("y", d => d.y);
+            }
 
             simulation.stop();
 
@@ -590,13 +618,19 @@ export default function GraphView() {
     }, [ hostData, portData, mode ]);
     
     const getNicknameLabel = useCallback((node, mode) => {
+        if (!node) return;
         if (mode === 'host') {
             return nicknameMapping[ node.ip_addr ] || node.ip_addr;
         } else {
+            if (!portData) return;
+            // If there are more than 5 nodes that have the same IP adress, only return the port number as the label
+            if (portData.nodes.filter(n => n.ip_addr === node.ip_addr).length > 5) {
+                return `:${node.port}`;
+            }
             const key = `${node.ip_addr}:${node.port}`;
             return nicknameMapping[ key ] || `${node.ip_addr}:${node.port}`;
         }
-    }, [ nicknameMapping ]);
+    }, [nicknameMapping, portData]);
 
     const getTooltipContentNode = useCallback((node, mode) => {
         if (mode === 'host') {
@@ -627,7 +661,7 @@ export default function GraphView() {
     useEffect(() => {
         if (!hostData || !portData) return;
 
-        d3.select(graphRef.current).selectAll("text")
+        d3.select(graphRef.current).selectAll("#labels").selectAll("text")
             .text(d => getNicknameLabel(d, mode));
 
         const tooltip = d3.select("body").select(".tooltip");
