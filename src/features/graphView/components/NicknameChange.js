@@ -39,19 +39,6 @@ export default function NicknameChange() {
         setAvailablePorts([]);
     }, [mode]);
 
-    // const handleIPSelect = (ip_addr) => {
-    //     dispatch(setSelectedIP(ip_addr));
-    //     if (mode === 'port') {
-    //         const ports = portData.nodes
-    //             .filter(node => node.ip_addr === ip_addr)
-    //             .map(node => node.port);
-    //         const uniquePorts = Array.from(new Set(ports));
-    //         uniquePorts.sort((a,b) => a-b);
-    //         setAvailablePorts(uniquePorts);
-    //         dispatch(setSelectedPort(""));
-    //     }
-    // }
-
     const handleNicknameChange = () => {
         if (!selectedIP) {
             alert("Please select an IP address.");
@@ -118,7 +105,7 @@ export default function NicknameChange() {
                             className="ip-selector"
                             style={{ width: '100%' }}
                             // TODO: change setSelectedIP and setSelectedPort as input to props or slice.
-                            onChange={(e) => { dispatch(selectedIP(e.target.value)); dispatch(setSelectedPort(""));}}
+                            onChange={(e) => { dispatch(setSelectedIP(e.target.value)); dispatch(setSelectedPort(""));}}
                             value={selectedIP}
                         >
                             <option></option>

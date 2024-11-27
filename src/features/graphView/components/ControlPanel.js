@@ -6,6 +6,7 @@ import { Button, Form } from 'react-bootstrap';
 import FormCheckLabel from 'react-bootstrap/FormCheckLabel'
 import NicknameChange from './NicknameChange';
 import ProtocolFilter from './ProtocolFilter';
+import TimeSlider from './TimeSlider';
 
 export default function ControlPanel(props) {
     const packets = useSelector((state) => state.data.packets);
@@ -33,6 +34,11 @@ export default function ControlPanel(props) {
                 <div style={{ marginTop: '10px', marginBottom: "20px", width: "100%" }}>
                     <Button onClick={props.resetAllNodes} style={{ width: "100%" }} disabled={!isSimulationStable}>Reset All Positions</Button>
                 </div>
+
+                {/* 구분선 */}
+                <hr style={{ margin: "20px 0" }} />
+                
+                <TimeSlider/>
 
                 {/* 구분선 */}
                 <hr style={{ margin: "20px 0" }} />

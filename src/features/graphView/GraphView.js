@@ -36,6 +36,7 @@ export default function GraphView() {
     const selectedL4Protocols = useSelector((state) => state.controlPanel.selectedL4Protocols);
     const selectedL7Protocols = useSelector((state) => state.controlPanel.selectedL7Protocols);
     const filteringMode = useSelector((state) => state.controlPanel.filteringMode);
+    const filteredPackets = useSelector((state) => state.timeSlider.filteredPackets);
 
     const simulationRef = useRef(null);
     const linkRef = useRef(null);
@@ -57,7 +58,7 @@ export default function GraphView() {
         // Initialize host data with nodes and links
         const data = { nodes: [], links: [] };
 
-        packets.forEach((packet) => {
+        filteredPackets.forEach((packet) => {
             const src_ip = packet._source.layers.ip[ 'ip.src_host' ];
             const dst_ip = packet._source.layers.ip[ 'ip.dst_host' ];
             const frame_size = Number(packet._source.layers.frame[ 'frame.len' ]);
@@ -85,7 +86,7 @@ export default function GraphView() {
         });
 
         return data;
-    }, [ packets ]);
+    }, [ filteredPackets ]);
 
     const TrafficVolumeToStrokeWidth = ((traffic_volume) => {
         return 0.5*Math.log10(traffic_volume);
@@ -98,7 +99,7 @@ export default function GraphView() {
         const allL4Protocols = new Set();
         const allL7Protocols = new Set();
 
-        packets.forEach((packet) => {
+        filteredPackets.forEach((packet) => {
             const src_ip = packet._source.layers.ip[ 'ip.src_host' ];
             const dst_ip = packet._source.layers.ip[ 'ip.dst_host' ];
             const src_port = packet._source.layers.tcp
@@ -263,14 +264,21 @@ export default function GraphView() {
         }));
         console.log(data);
         return data;
-    }, [dispatch, packets]);
+    }, [dispatch, filteredPackets]);
+
+    // useEffect(() => {
+    //     if (packets && !hostData) {
+    //         dispatch(setHostGraphData(initHostData()));
+    //         dispatch(setPortGraphData(initPortData()));
+    //     }
+    // }, [ dispatch, hostData, portData ]);
 
     useEffect(() => {
-        if (packets && !hostData) {
+        if (filteredPackets) {
             dispatch(setHostGraphData(initHostData()));
             dispatch(setPortGraphData(initPortData()));
         }
-    }, [ dispatch, hostData, initHostData, initPortData, packets, portData ]);
+    }, [ filteredPackets, initHostData, initPortData]);
 
     useEffect(() => {
         if (!hostData || !portData) return;
