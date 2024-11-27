@@ -428,7 +428,6 @@ export default function GraphView() {
                 .attr("r", d => sizeScale(d.traffic_volume))
                 .attr("fill", d => colorScale(d.ip_addr))
                 // .on("dblclick", resetNodePosition)
-                .on("dblclick.zoom", null) // Prevent zoom on double-click on nodes
                 .on("click", (event, d) => {
                     dispatch(addEntry({ metadata: null, formSelections: { hostA: d.ip_addr, portA: d.port, hostB: "", portB: "", radioASelected: true } })); // Add new entry in TimelineView
                     d3.selectAll(".tooltip").remove();
@@ -486,7 +485,7 @@ export default function GraphView() {
             });
 
             // Add labels
-            const labels = container.append("g")
+            const labels = container.append("g").attr("id", "labels")
                 .selectAll("text")
                 .data(nodes)
                 .join("text")
@@ -501,6 +500,35 @@ export default function GraphView() {
                 });
 
             labelsRef.current = labels;
+
+            // If there are more than 5 nodes that have the same IP address, add an IP address label in the center of the nodes
+            if (mode === 'port') {
+                const ipAddrs = Array.from(new Set(nodes.map(d => d.ip_addr)));
+                const ipAddrsWithMultipleNodes = []; // {ip_addr: string, x: number, y: number}[]
+                ipAddrs.forEach(ipAddr => {
+                    const nodesWithSameIp = nodes.filter(d => d.ip_addr === ipAddr);
+                    if (nodesWithSameIp.length > 5) {
+                        const x = d3.mean(nodesWithSameIp, d => d.x);
+                        const y = d3.mean(nodesWithSameIp, d => d.y);
+                        ipAddrsWithMultipleNodes.push({ ip_addr: ipAddr, x, y });
+                    }
+                });
+
+                // Print ipAddrsWithMultipleNodes
+                console.log(ipAddrsWithMultipleNodes);
+                container.append("g").attr("id", "ipAddrLabels")
+                    .selectAll("text")
+                    .data(ipAddrsWithMultipleNodes)
+                    .join("text")
+                    .text(d => d.ip_addr)
+                    .attr("font-size", "12px")
+                    .attr("fill", "#555")
+                    .attr("dx", "5em")
+                    .attr("text-anchor", "middle")
+                    .attr("font-weight", "bold")
+                    .attr("x", d => d.x)
+                    .attr("y", d => d.y);
+            }
 
             simulation.stop();
 
@@ -588,11 +616,52 @@ export default function GraphView() {
         }
 
     }, [ hostData, portData, mode ]);
+    
+    const getNicknameLabel = useCallback((node, mode) => {
+        if (!node) return;
+        if (mode === 'host') {
+            return nicknameMapping[ node.ip_addr ] || node.ip_addr;
+        } else {
+            if (!portData) return;
+            // If there are more than 5 nodes that have the same IP adress, only return the port number as the label
+            if (portData.nodes.filter(n => n.ip_addr === node.ip_addr).length > 5) {
+                return `:${node.port}`;
+            }
+            const key = `${node.ip_addr}:${node.port}`;
+            return nicknameMapping[ key ] || `${node.ip_addr}:${node.port}`;
+        }
+    }, [nicknameMapping, portData]);
+
+    const getTooltipContentNode = useCallback((node, mode) => {
+        if (mode === 'host') {
+            return `${nicknameMapping[ node.ip_addr ] ? `${nicknameMapping[ node.ip_addr ]}<br>` : ''}IP: ${node.ip_addr}<br>Traffic Volume: ${node.traffic_volume}`;
+        } else {
+            const key = `${node.ip_addr}:${node.port}`;
+
+            // L7 프로토콜 처리
+            let l7_proto_display;
+            if (Array.isArray(node.l7_proto)) {
+                if (node.l7_proto.length > 1) {
+                    // 'None'을 제외한 프로토콜 리스트 생성
+                    l7_proto_display = node.l7_proto.filter((proto) => proto !== 'None');
+                } else {
+                    l7_proto_display = node.l7_proto;
+                }
+                // 배열을 문자열로 변환
+                l7_proto_display = l7_proto_display.join(', ');
+            } else {
+                l7_proto_display = node.l7_proto;
+            }
+
+            return `${nicknameMapping[ key ] ? `${nicknameMapping[ key ]}<br>` : ''}IP: ${node.ip_addr}<br>Port: ${node.port}<br>Traffic Volume: ${node.traffic_volume}<br>L4 Protocol: ${node.l4_proto.join(", ")}<br>L7 Protocol: ${l7_proto_display}`;
+        }
+    }, [ nicknameMapping ]);
+
 
     useEffect(() => {
         if (!hostData || !portData) return;
 
-        d3.select(graphRef.current).selectAll("text")
+        d3.select(graphRef.current).selectAll("#labels").selectAll("text")
             .text(d => getNicknameLabel(d, mode));
 
         const tooltip = d3.select("body").select(".tooltip");
@@ -610,7 +679,7 @@ export default function GraphView() {
             .on("mouseout", () => {
                 tooltip.style("opacity", 0);
             });
-    }, [ nicknameMapping, mode ]);
+    }, [nicknameMapping, mode, hostData, portData, getNicknameLabel, getTooltipContentNode]);
 
     useEffect(() => {
         if (nodeRef.current && linkRef.current) {
@@ -735,40 +804,6 @@ export default function GraphView() {
             return (filteringMode === "or" ? isL4Selected || isL7Selected : isL4Selected && isL7Selected) ? 1 : 0.1;
         } else {
             return 1;
-        }
-    };
-
-    const getNicknameLabel = (node, mode) => {
-        if (mode === 'host') {
-            return nicknameMapping[ node.ip_addr ] || node.ip_addr;
-        } else {
-            const key = `${node.ip_addr}:${node.port}`;
-            return nicknameMapping[ key ] || `${node.ip_addr}:${node.port}`;
-        }
-    };
-
-    const getTooltipContentNode = (node, mode) => {
-        if (mode === 'host') {
-            return `${nicknameMapping[ node.ip_addr ] ? `${nicknameMapping[ node.ip_addr ]}<br>` : ''}IP: ${node.ip_addr}<br>Traffic Volume: ${node.traffic_volume}`;
-        } else {
-            const key = `${node.ip_addr}:${node.port}`;
-
-            // L7 프로토콜 처리
-            let l7_proto_display;
-            if (Array.isArray(node.l7_proto)) {
-                if (node.l7_proto.length > 1) {
-                    // 'None'을 제외한 프로토콜 리스트 생성
-                    l7_proto_display = node.l7_proto.filter((proto) => proto !== 'None');
-                } else {
-                    l7_proto_display = node.l7_proto;
-                }
-                // 배열을 문자열로 변환
-                l7_proto_display = l7_proto_display.join(', ');
-            } else {
-                l7_proto_display = node.l7_proto;
-            }
-
-            return `${nicknameMapping[ key ] ? `${nicknameMapping[ key ]}<br>` : ''}IP: ${node.ip_addr}<br>Port: ${node.port}<br>Traffic Volume: ${node.traffic_volume}<br>L4 Protocol: ${node.l4_proto.join(", ")}<br>L7 Protocol: ${l7_proto_display}`;
         }
     };
 
