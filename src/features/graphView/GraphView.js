@@ -248,7 +248,7 @@ export default function GraphView() {
             link.l4_proto = Array.from(link.l4_proto);
             link.l7_proto = Array.from(link.l7_proto);
         });
-        console.log(data.links);
+        // console.log(data.links);
 
         // Sort ports in AvailableHostPorts in ascending order
         timelineViewFormOpts.forEach(port => port.ports.sort((a, b) => a - b));
@@ -258,11 +258,13 @@ export default function GraphView() {
 
 
         dispatch(setFormOpts(timelineViewFormOpts));
-        dispatch(addProtocols({
-            l4Protocols: Array.from(allL4Protocols).sort(protocolComparator),
-            l7Protocols: Array.from(allL7Protocols).sort(protocolComparator),
+        if (!portData) {
+            dispatch(addProtocols({
+                l4Protocols: Array.from(allL4Protocols).sort(protocolComparator),
+                l7Protocols: Array.from(allL7Protocols).sort(protocolComparator),
         }));
-        console.log(data);
+        }
+        //console.log(data);
         return data;
     }, [dispatch, filteredPackets]);
 

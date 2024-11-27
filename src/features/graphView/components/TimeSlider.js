@@ -11,7 +11,6 @@ export default function TimeSlider(props) {
     const filterStartEpoch = useSelector((state) => state.timeSlider.filterStartEpoch);
     const filterEndEpoch = useSelector((state) => state.timeSlider.filterEndEpoch);
 
-    const max_epoch = endEpoch - startEpoch;
     const dispatch = useDispatch(); 
     
     const handleChange = (event, newValue) => {
@@ -23,11 +22,22 @@ export default function TimeSlider(props) {
         dispatch(setFilteredPackets(filteredPackets));
     };
 
-    function roundToDecimal(value, decimals) {
-        const factor = Math.pow(10, decimals);
-        return Math.round(value * factor) / factor;
+    const epochToTime = (epoch) => {
+        const totalSeconds = Math.floor(epoch / 1_000_000);
+        const microseconds = String(epoch % 1_000_000).padStart(6, '0');
+
+        const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+        const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+        const seconds = String(totalSeconds % 60).padStart(2, '0');
+        if (hours === "00") {
+            if (minutes === "00") {
+                return `${seconds}.${microseconds}s`;
+            }
+            return `${minutes}m:${seconds}.${microseconds}s`;
+        }
+
+        return `${hours}h:${minutes}m:${seconds}s`;
     }
-    
 
     return (
         <div>
@@ -39,7 +49,7 @@ export default function TimeSlider(props) {
                 min={0}
                 max={endEpoch-startEpoch}
             />
-            <p>{roundToDecimal(filterStartEpoch/max_epoch*100, 2)}% - {roundToDecimal(filterEndEpoch/max_epoch*100, 2)}%</p>
+            <p>{epochToTime(filterStartEpoch)} - {epochToTime(filterEndEpoch)}</p>
         </div>
     )
 }
