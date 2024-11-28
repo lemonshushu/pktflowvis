@@ -5,11 +5,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Button, Card, CloseButton, Col, Form, OverlayTrigger, Row, Tooltip } from "react-bootstrap";
 import { useDispatch, useSelector } from 'react-redux';
 import {
+    broadcastZoomUpdate,
     removeEntry,
     setEntryTitle,
     setFormSelections,
     setMetadata,
     setPropDelay,
+    setShouldUpdateZoom,
     setTimelineData,
     swapFormSelections,
 } from '../timelineViewSlice';
@@ -43,6 +45,12 @@ export default function TimelineEntry({ entryIndex }) {
     const availableLinks = portGraphData.links;
     const startEpoch = useSelector((state) => state.data.startEpoch) / (10 ** 6);
     const endEpoch = useSelector((state) => state.data.endEpoch) / (10 ** 6);
+    const alignTime = useSelector((state) => state.timelineView.alignTime);
+    const alignedZoomState = useSelector((state) => state.timelineView.alignedZoomState);
+    const shouldUpdateZoom = useSelector((state) => state.timelineView.shouldUpdateZoom[ entryIndex ]);
+    const zoomRef = useRef(null);
+    const alignTimeRef = useRef(alignTime);
+    const shouldUpdateZoomRef = useRef(shouldUpdateZoom);
 
     const [ titleText, setTitleText ] = useState(entryTitles[ entryIndex ]);
     const [ titleEditMode, setTitleEditMode ] = useState(false);
@@ -54,6 +62,29 @@ export default function TimelineEntry({ entryIndex }) {
     const [ isHostASelected, setIsHostASelected ] = useState(false);
     const [ hostBOptions, setHostBOptions ] = useState({});
     const [ shouldResetCheck, setShouldResetCheck ] = useState(false);
+
+    useEffect(() => {
+        alignTimeRef.current = alignTime;
+    }, [ alignTime ]);
+
+    useEffect(() => {
+        shouldUpdateZoomRef.current = shouldUpdateZoom;
+    }, [ shouldUpdateZoom ]);
+
+    useEffect(() => {
+        if (!zoomRef.current) return;
+        if (alignTime && shouldUpdateZoom) {
+            const savedTransform = d3.zoomIdentity
+                .translate(alignedZoomState.translateX, 0)
+                .scale(alignedZoomState.scale);
+
+            const svg = d3.select(svgRef.current);
+
+            svg.call(zoomRef.current.transform, savedTransform);
+            console.log("Zoom updated for entry", entryIndex);
+            dispatch(setShouldUpdateZoom({ index: entryIndex, shouldUpdate: false }));
+        }
+    }, [alignTime, alignedZoomState, dispatch, entryIndex, shouldUpdateZoom]);
 
     useEffect(() => {
         if (formSelection.hostA && formSelection.portA) {
@@ -648,20 +679,11 @@ export default function TimelineEntry({ entryIndex }) {
         }
 
 
-
-
-        const zoom = d3.zoom()
-            .scaleExtent([ 1, 20 ]) // Set minimum scale to 1
-            .on("zoom", zoomed)
-            .constrain(constrain);
-
-
-        svg.call(zoom);
-
-
         // Zoom function
         function zoomed(event) {
             const newXScale = event.transform.rescaleX(xScale);
+
+            if (alignTimeRef.current && !(shouldUpdateZoomRef.current)) dispatch(broadcastZoomUpdate({zoomState: { scale: event.transform.k, translateX: event.transform.x }, index: entryIndex }));
 
             // Update x-axis
             xAxisGroup.call(
@@ -692,8 +714,20 @@ export default function TimelineEntry({ entryIndex }) {
 
 
 
+        zoomRef.current = d3.zoom()
+            .scaleExtent([ 1, 20 ]) // Set minimum scale to 1
+            .on("zoom", zoomed)
+            .constrain(constrain);
 
-    }, [ metadata, entryIndex, timelineData, dispatch, d3ShouldRender, propDelays, startEpoch, endEpoch ]);
+        svg.call(zoomRef.current);
+
+
+
+
+
+
+
+    }, [metadata, entryIndex, timelineData, dispatch, d3ShouldRender, propDelays, startEpoch, endEpoch, alignTime, shouldUpdateZoom, alignedZoomState.translateX, alignedZoomState.scale]);
 
     useEffect(() => {
         if (formShouldReset) {

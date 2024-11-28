@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Button, Container, Form, Navbar } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
 import TimelineEntry from './components/TimelineEntry';
-import { addEntry, setShouldFocusLastEntry } from './timelineViewSlice';
+import { addEntry, setShouldFocusLastEntry, toggleAlignTime } from './timelineViewSlice';
 
 export default function TimelineView() {
     const dispatch = useDispatch();
@@ -33,7 +33,7 @@ export default function TimelineView() {
     return (
         <div>
             <Navbar fixed="top" className="bg-body-tertiary d-flex justify-content-end pe-5">
-                <Form.Check type="switch" label="Align Time" className="ms-3 text-start me-4" />
+                <Form.Check type="switch" label="Align Time" className="ms-3 text-start me-4" onChange={() => dispatch(toggleAlignTime())} />
                 <div className="me-4">
                     <Button className="rounded-circle" variant="light" onClick={
                         () => {
