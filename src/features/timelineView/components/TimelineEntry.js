@@ -41,6 +41,8 @@ export default function TimelineEntry({ entryIndex }) {
     const propDelays = useSelector((state) => state.timelineView.propDelays);
     const portGraphData = useSelector((state) => state.graphView.portGraphData);
     const availableLinks = portGraphData.links;
+    const startEpoch = useSelector((state) => state.data.startEpoch) / (10 ** 6);
+    const endEpoch = useSelector((state) => state.data.endEpoch) / (10 ** 6);
 
     const [ titleText, setTitleText ] = useState(entryTitles[ entryIndex ]);
     const [ titleEditMode, setTitleEditMode ] = useState(false);
@@ -215,39 +217,39 @@ export default function TimelineEntry({ entryIndex }) {
             if (isTCP) {
                 // Use TCP sequence numbers to calculate RTT
                 for (let i = 0; i < data.length - 1; i++) {
-                    const currentPacket = data[i];
-                    const currentTime = parseFloat(currentPacket._source.layers.frame["frame.time_epoch"]);
+                    const currentPacket = data[ i ];
+                    const currentTime = parseFloat(currentPacket._source.layers.frame[ "frame.time_epoch" ]);
                     const currentPacketInfo = getPacketInfo(currentPacket);
-                
+
                     // Determine if current packet is TX (from local IP and port to remote IP and port)
                     const isCurrentTX = currentPacketInfo.srcIP === localIP &&
                         currentPacketInfo.dstIP === remoteIP &&
                         currentPacketInfo.srcPort === localPort &&
                         currentPacketInfo.dstPort === remotePort;
-                
+
                     if (isCurrentTX) {
                         const tcpLayer = currentPacket._source.layers.tcp;
-                        const expectedAckNum = tcpLayer["tcp.nxtseq"] + 1;
-                
+                        const expectedAckNum = tcpLayer[ "tcp.nxtseq" ] + 1;
+
                         // Search for corresponding ACK packet
                         let ackPacket;
                         let ackTime;
                         let j = i + 1;
                         while (j < data.length) {
-                            ackPacket = data[j];
-                            ackTime = parseFloat(ackPacket._source.layers.frame["frame.time_epoch"]);
+                            ackPacket = data[ j ];
+                            ackTime = parseFloat(ackPacket._source.layers.frame[ "frame.time_epoch" ]);
                             const ackPacketInfo = getPacketInfo(ackPacket);
-                
+
                             // Check if ackPacket is RX (from remote IP and port to local IP and port)
                             const isAckPacketRX = ackPacketInfo.srcIP === remoteIP &&
                                 ackPacketInfo.dstIP === localIP &&
                                 ackPacketInfo.srcPort === remotePort &&
                                 ackPacketInfo.dstPort === localPort;
-                
+
                             if (isAckPacketRX) {
                                 const ackTcpLayer = ackPacket._source.layers.tcp;
-                                const ackNum = parseInt(ackTcpLayer["tcp.ack"]);
-                
+                                const ackNum = parseInt(ackTcpLayer[ "tcp.ack" ]);
+
                                 if (ackNum >= expectedAckNum) {
                                     // Found the ACK packet
                                     const delta = ackTime - currentTime;
@@ -262,7 +264,7 @@ export default function TimelineEntry({ entryIndex }) {
                         }
                     }
                 }
-                
+
                 // If no valid delays are found, set a default propagation delay
                 let propDelay;
                 if (delays.length > 0) {
@@ -272,9 +274,9 @@ export default function TimelineEntry({ entryIndex }) {
                 } else {
                     propDelay = 0.001; // Default to 1 millisecond if no delays are found
                 }
-                
+
                 dispatch(setPropDelay({ data: propDelay, index: entryIndex }));
-                
+
 
             } else {
                 for (let i = 0; i < data.length - 1; i++) {
@@ -389,19 +391,17 @@ export default function TimelineEntry({ entryIndex }) {
         const portB = metadata[ entryIndex ].portB;
         const localhost = metadata[ entryIndex ].localhost; // "A" or "B"
 
-        // Extract times and define scales
-        let times = data.map(d => parseFloat(d._source.layers.frame[ "frame.time_epoch" ]));
-
-        const timeMin = d3.min(times);
-        const timeMax = d3.max(times);
+        const timeMin = 0;
+        const timeMax = endEpoch - startEpoch;
 
         // Add padding to time domain
-        const timePadding = (timeMax - timeMin) * 0.05; // 5% padding on each side
+        // const timePadding = (timeMax - timeMin) * 0.05; // 5% padding on each side
+        const timePadding = 0;
         const timeDomainStart = timeMin - timePadding;
         const timeDomainEnd = timeMax + timePadding;
 
         const xScale = d3.scaleLinear()
-            .domain([ 0, timeDomainEnd - timeDomainStart ])
+            .domain([ timeDomainStart, timeDomainEnd ])
             .range([ 0, timelineWidth ]);
 
         const xAxis = d3.axisBottom(xScale);
@@ -438,7 +438,7 @@ export default function TimelineEntry({ entryIndex }) {
 
         // Process packets
         const packets = data.map(packet => {
-            const time = parseFloat(packet._source.layers.frame[ "frame.time_epoch" ]) - timeDomainStart;
+            const time = parseFloat(packet._source.layers.frame[ "frame.time_epoch" ]) - startEpoch;
             const srcIP = packet._source.layers.ip[ "ip.src" ];
             const dstIP = packet._source.layers.ip[ "ip.dst" ];
             const srcPort = packet._source.layers.tcp ? packet._source.layers.tcp[ "tcp.srcport" ] : packet._source.layers.udp[ "udp.srcport" ];
@@ -502,7 +502,7 @@ export default function TimelineEntry({ entryIndex }) {
         processedPackets.forEach(packet => l7ProtocolSet.add(packet.l7Protocol));
 
         l7ProtocolSet.forEach(protocol => {
-        // Define arrowhead marker
+            // Define arrowhead marker
             svg.append("defs").append("marker")
                 .attr("id", `arrowhead-${entryIndex}-${protocol.replace(/[ ,.]/g, "")}`)
                 .attr("viewBox", "0 -5 10 10")
@@ -514,7 +514,7 @@ export default function TimelineEntry({ entryIndex }) {
                 .append("path")
                 .attr("d", "M0,-5L10,0L0,5")
                 .attr("fill", d3.interpolateRainbow(protocolColor(stringToNumber(protocol))));
-        })
+        });
 
         // Create tooltip div (hidden by default)
         const tooltip = d3.select(svgRef.current.parentNode)
@@ -547,8 +547,8 @@ export default function TimelineEntry({ entryIndex }) {
                 d3.select(this).attr("stroke-width", 5);
                 tooltip.transition().duration(200).style("opacity", 1);
                 tooltip.html(`Protocol: ${d.l7Protocol}`)
-                    .style("left", (event.clientX+5) + "px")
-                    .style("top", (event.clientY-28) + "px");
+                    .style("left", (event.clientX + 5) + "px")
+                    .style("top", (event.clientY - 28) + "px");
             })
             .on("mouseout", function () {
                 d3.select(this).attr("stroke-width", 3);
@@ -575,20 +575,20 @@ export default function TimelineEntry({ entryIndex }) {
             .attr("stroke", "white")
             .attr("stroke-width", 4);
 
-            // Add host labels
-            svgGroup.append("text")
-                .attr("x", -margin.left + 10)
-                .attr("y", hostAY)
-                .attr("dy", "0.35em")
-                .text(`${ipA}:${metadata[ entryIndex ].portA}`)
-                .style("font-size", "14px");
-    
-            svgGroup.append("text")
-                .attr("x", -margin.left + 10)
-                .attr("y", hostBY)
-                .attr("dy", "0.35em")
-                .text(`${ipB}:${metadata[ entryIndex ].portB}`)
-                .style("font-size", "14px");
+        // Add host labels
+        svgGroup.append("text")
+            .attr("x", -margin.left + 10)
+            .attr("y", hostAY)
+            .attr("dy", "0.35em")
+            .text(`${ipA}:${metadata[ entryIndex ].portA}`)
+            .style("font-size", "14px");
+
+        svgGroup.append("text")
+            .attr("x", -margin.left + 10)
+            .attr("y", hostBY)
+            .attr("dy", "0.35em")
+            .text(`${ipB}:${metadata[ entryIndex ].portB}`)
+            .style("font-size", "14px");
 
         // Add x-axis
         const xAxisGroup = svgGroup.append("g")
@@ -602,9 +602,9 @@ export default function TimelineEntry({ entryIndex }) {
             .attr("transform", `translate(0, ${hostBY})`)
             .call(
                 d3.axisBottom(xScale)
-                // .ticks(5)
-                // .tickSize(-svgHeight - 10) // Extend grid lines upward
-                // .tickFormat("")
+                    .ticks(5)
+                    .tickSize(-timelineHeight - 10)
+                    .tickFormat("")
             )
             .selectAll(".tick line")
             .attr("stroke", "#e0e0e0")
@@ -613,13 +613,51 @@ export default function TimelineEntry({ entryIndex }) {
         // Bring the x-axis to the front
         svgGroup.selectAll(".x-axis").raise();
 
-        // Add zoom behavior
+        const minDomain = xScale.domain()[ 0 ];
+        const maxDomain = xScale.domain()[ 1 ];
+
+        function constrain(transform, extent, translateExtent) {
+            const scaleX = transform.rescaleX(xScale);
+            let domain = scaleX.domain();
+
+            let k = transform.k;
+            let tx = transform.x;
+
+            const domainWidth = maxDomain - minDomain;
+            const visibleDomainWidth = domain[ 1 ] - domain[ 0 ];
+
+            // Prevent zooming out beyond the original domain
+            if (visibleDomainWidth > domainWidth) {
+                k = 1; // Reset to minimum scale
+                tx = 0; // Reset translation
+                transform = d3.zoomIdentity.scale(k).translate(tx, transform.y);
+                domain = transform.rescaleX(xScale).domain();
+            }
+
+            // Adjust translation to prevent panning beyond domain
+            if (domain[ 0 ] < minDomain) {
+                const minX = xScale(minDomain);
+                tx = -minX * k;
+            }
+            if (domain[ 1 ] > maxDomain) {
+                const maxX = xScale(maxDomain);
+                tx = -maxX * k + timelineWidth;
+            }
+
+            return d3.zoomIdentity.translate(tx, transform.y).scale(k);
+        }
+
+
+
+
         const zoom = d3.zoom()
-            .scaleExtent([ 0.5, 20 ]) // Adjust scale extent as needed
-            .translateExtent([ [ 0, 0 ], [ timelineWidth, timelineHeight ] ])
-            .on("zoom", zoomed);
+            .scaleExtent([ 1, 20 ]) // Set minimum scale to 1
+            .on("zoom", zoomed)
+            .constrain(constrain);
+
 
         svg.call(zoom);
+
 
         // Zoom function
         function zoomed(event) {
@@ -655,7 +693,7 @@ export default function TimelineEntry({ entryIndex }) {
 
 
 
-    }, [ metadata, entryIndex, timelineData, dispatch, d3ShouldRender, propDelays ]);
+    }, [ metadata, entryIndex, timelineData, dispatch, d3ShouldRender, propDelays, startEpoch, endEpoch ]);
 
     useEffect(() => {
         if (formShouldReset) {
