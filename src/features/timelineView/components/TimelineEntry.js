@@ -92,6 +92,14 @@ export default function TimelineEntry({ entryIndex }) {
         if (!shouldResetCheck) return;
         let isChanged = false;
         const newFormSelection = { ...formSelection };
+
+        // if formSelection.hostA is not included in formOpts, reset formSelection.hostA
+        if (formSelection.hostA && !formOpts.find(opt => opt.ip_addr === formSelection.hostA)) {
+            newFormSelection.hostA = "";
+            newFormSelection.portA = "";
+            isChanged = true;
+        }
+
         // if formSelection.portA is not included in formOpts, reset formSelection.portA
         if (formSelection.portA && formOpts.length > 0) {
             const hostA = formOpts.find(opt => opt.ip_addr === formSelection.hostA);
