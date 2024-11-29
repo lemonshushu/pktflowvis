@@ -59,7 +59,7 @@ export default function TimelineEntry({ entryIndex }) {
     const [ timelineDataShouldUpdate, setTimelineDataShouldUpdate ] = useState(false);
     const [ propDelayShouldUpdate, setPropDelayShouldUpdate ] = useState(false);
     const [ d3ShouldRender, setD3ShouldRender ] = useState(true);
-    const [ isHostASelected, setIsHostASelected ] = useState(false);
+    const [ enableHostBForm, setEnableHostBForm ] = useState(false);
     const [ hostBOptions, setHostBOptions ] = useState({});
     const [ shouldResetCheck, setShouldResetCheck ] = useState(false);
 
@@ -88,7 +88,7 @@ export default function TimelineEntry({ entryIndex }) {
 
     useEffect(() => {
         if (formSelection.hostA && formSelection.portA) {
-            setIsHostASelected(true);
+            setEnableHostBForm(true);
 
             // availableLinks를 통해, 반대편(Host B)의 가능한 IP주소 및 포트를 가져와서 설정
             const hostBOptions = {};
@@ -112,7 +112,7 @@ export default function TimelineEntry({ entryIndex }) {
             setHostBOptions(hostBOptions);
         }
         else {
-            setIsHostASelected(false);
+            setEnableHostBForm(false);
         }
         setShouldResetCheck(true);
     }, [ availableLinks, formSelection.hostA, formSelection.portA ]);
@@ -136,7 +136,7 @@ export default function TimelineEntry({ entryIndex }) {
         // if formSelection.portA is not included in formOpts, reset formSelection.portA
         if (formSelection.portA && formOpts.length > 0) {
             const hostA = formOpts.find(opt => opt.ip_addr === formSelection.hostA);
-            if (!hostA.ports.includes(formSelection.portA)) {
+            if (hostA && !hostA.ports.includes(formSelection.portA)) {
                 newFormSelection.portA = "";
                 isChanged = true;
             }
@@ -838,7 +838,7 @@ export default function TimelineEntry({ entryIndex }) {
                                 <Col xs={3} className="d-flex align-items-center justify-content-center">
                                     <Form.Label column={false}>Port: </Form.Label>
                                     <Form.Select className="ms-3" style={{ width: 150 }} onChange={onPortAChange} value={formSelection.portA}>
-                                        {formOpts.length > 0 ? formOpts[ formOpts.findIndex((opt) => opt.ip_addr === formSelection.hostA) ].ports.map((port, index) => {
+                                        {formOpts.length > 0 && formOpts[ formOpts.findIndex((opt) => opt.ip_addr === formSelection.hostA) ] ? formOpts[ formOpts.findIndex((opt) => opt.ip_addr === formSelection.hostA) ].ports.map((port, index) => {
                                             return (<option key={index}>{port}</option>);
                                         }
                                         ) : null}
@@ -854,7 +854,7 @@ export default function TimelineEntry({ entryIndex }) {
                             <Row>
                                 <Col xs={4} className="d-flex align-items-center justify-content-center">
                                     <Form.Label column={false}><strong>Host B: </strong></Form.Label>
-                                    <Form.Select className="ms-3" style={{ width: 250 }} onChange={onHostBChange} value={formSelection.hostB} disabled={!isHostASelected}>
+                                    <Form.Select className="ms-3" style={{ width: 250 }} onChange={onHostBChange} value={formSelection.hostB} disabled={!enableHostBForm}>
                                         <option />
                                         {
                                             Object.keys(hostBOptions).map((ip, index) => {
@@ -865,7 +865,7 @@ export default function TimelineEntry({ entryIndex }) {
                                 </Col>
                                 <Col xs={3} className="d-flex align-items-center justify-content-center">
                                     <Form.Label column={false}>Port: </Form.Label>
-                                    <Form.Select className="ms-3" style={{ width: 150 }} onChange={onPortBChange} value={formSelection.portB} disabled={!isHostASelected}>
+                                    <Form.Select className="ms-3" style={{ width: 150 }} onChange={onPortBChange} value={formSelection.portB} disabled={!enableHostBForm}>
                                         <option />
                                         {
                                             hostBOptions[ formSelection.hostB ] ? hostBOptions[ formSelection.hostB ].map((port, index) => {
