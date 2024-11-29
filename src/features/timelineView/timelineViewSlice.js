@@ -44,6 +44,16 @@ export const timelineViewSlice = createSlice({
          */
         shouldFocusLastEntry: false,
 
+        /** 
+         * Zoom state used across all entries, when `alignTime` is true
+         */
+        alignedZoomState: {scale: 1, translateX: 0},
+
+        /**
+         * Whether to update the zoom state for each entry
+         */
+        shouldUpdateZoom: [],
+
     },
     reducers: {
 
@@ -62,6 +72,7 @@ export const timelineViewSlice = createSlice({
             state.formSelections.push(formSelections);
             state.entryTitles.push("");
             state.propDelays.push(null);
+            state.shouldUpdateZoom.push(false);
         },
 
         /**
@@ -82,6 +93,7 @@ export const timelineViewSlice = createSlice({
             state.formSelections.splice(action.payload, 1);
             state.entryTitles.splice(action.payload, 1);
             state.propDelays.splice(action.payload, 1);
+            state.shouldUpdateZoom.splice(action.payload, 1);
         },
 
         /**
@@ -148,6 +160,20 @@ export const timelineViewSlice = createSlice({
         setShouldFocusLastEntry: (state, action) => {
             state.shouldFocusLastEntry = action.payload;
         },
+
+        /**
+         * Broadcast a zoom update to all entries
+         */
+        broadcastZoomUpdate: (state, action) => {
+            const {zoomState, index} = action.payload;
+            state.alignedZoomState = zoomState;
+            state.shouldUpdateZoom = state.shouldUpdateZoom.map((_, i) => !(i === index));
+        },
+
+        setShouldUpdateZoom: (state, action) => {
+            const {index, shouldUpdate} = action.payload;
+            state.shouldUpdateZoom[ index ] = shouldUpdate;
+        },
     },
 });
 
@@ -163,6 +189,8 @@ export const {
     setPropDelay,
     swapFormSelections,
     setShouldFocusLastEntry,
+    broadcastZoomUpdate,
+    setShouldUpdateZoom,
 } = timelineViewSlice.actions;
 
 export default timelineViewSlice.reducer;
