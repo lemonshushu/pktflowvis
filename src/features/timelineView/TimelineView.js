@@ -15,8 +15,9 @@ export default function TimelineView() {
     useEffect(() => {
 
         if (shouldFocusLastEntry) {
-            dispatch(setShouldFocusLastEntry(false));
-            if (timelineVisible) {
+            if (!timelineVisible) setTimelineVisible(true);
+            else {
+                dispatch(setShouldFocusLastEntry(false));
                 const lastEntry = document.getElementById(`entry-${timelineData.length - 1}`);
                 lastEntry.scrollIntoView({ behavior: "smooth", block: "end", inline: "nearest" });
 
@@ -27,7 +28,7 @@ export default function TimelineView() {
                 }, 1000);
             }
         }
-    }, [dispatch, shouldFocusLastEntry, timelineData.length, timelineVisible]);
+    }, [ dispatch, shouldFocusLastEntry, timelineData.length, timelineVisible ]);
 
 
 
