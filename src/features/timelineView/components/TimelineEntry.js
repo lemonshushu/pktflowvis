@@ -14,6 +14,7 @@ import {
     setShouldUpdateZoom,
     setTimelineData,
     swapFormSelections,
+    toggleEntryVisibleState,
 } from '../timelineViewSlice';
 import "./TimelineEntry.css";
 
@@ -30,7 +31,7 @@ const stringToNumber = (str) => {
     return (hash & 0xFFFFFFFF) / 0xFFFFFFFF;
 };
 
-export default function TimelineEntry({ entryIndex }) {
+export default function TimelineEntry({ entryIndex, hidden }) {
     const dispatch = useDispatch();
     const formOpts = useSelector((state) => state.timelineView.formOpts);
     const formSelections = useSelector((state) => state.timelineView.formSelections);
@@ -51,6 +52,7 @@ export default function TimelineEntry({ entryIndex }) {
     const zoomRef = useRef(null);
     const alignTimeRef = useRef(alignTime);
     const shouldUpdateZoomRef = useRef(shouldUpdateZoom);
+    const entryVisibleState = useSelector((state) => state.timelineView.entryVisibleStates[ entryIndex ]);
 
     const [ titleText, setTitleText ] = useState(entryTitles[ entryIndex ]);
     const [ titleEditMode, setTitleEditMode ] = useState(false);
@@ -84,7 +86,7 @@ export default function TimelineEntry({ entryIndex }) {
             console.log("Zoom updated for entry", entryIndex);
             dispatch(setShouldUpdateZoom({ index: entryIndex, shouldUpdate: false }));
         }
-    }, [alignTime, alignedZoomState, dispatch, entryIndex, shouldUpdateZoom]);
+    }, [ alignTime, alignedZoomState, dispatch, entryIndex, shouldUpdateZoom ]);
 
     useEffect(() => {
         if (formSelection.hostA && formSelection.portA) {
@@ -155,6 +157,28 @@ export default function TimelineEntry({ entryIndex }) {
         if (isChanged) dispatch(setFormSelections({ data: newFormSelection, index: entryIndex }));
         setShouldResetCheck(false);
     }, [ dispatch, entryIndex, formOpts, formSelection, hostBOptions, shouldResetCheck ]);
+
+    useEffect(() => {
+        // For each entry, if hostA, portA, hostB, or portB is not in `formOpts`, hide the entry
+        if (formOpts.length > 0) {
+            const { hostA, portA, hostB, portB } = metadata[ entryIndex ];
+            if (entryVisibleState && (
+                !formOpts.find(opt => opt.ip_addr === hostA) ||
+                !formOpts.find(opt => opt.ip_addr === hostB) ||
+                !formOpts.find(opt => opt.ip_addr === hostA).ports.includes(portA) ||
+                !formOpts.find(opt => opt.ip_addr === hostB).ports.includes(portB))) {
+                dispatch(toggleEntryVisibleState(entryIndex)); // Hide the entry
+            }
+            if (!entryVisibleState && 
+                formOpts.find(opt => opt.ip_addr === hostA) &&
+                formOpts.find(opt => opt.ip_addr === hostB) &&
+                formOpts.find(opt => opt.ip_addr === hostA).ports.includes(portA) &&
+                formOpts.find(opt => opt.ip_addr === hostB).ports.includes(portB)) {
+                dispatch(toggleEntryVisibleState(entryIndex)); // Show the entry
+                dispatch(setFormSelections({ data: { hostA, portA, hostB, portB, radioASelected: metadata[ entryIndex ].localhost === "A" }, index: entryIndex }));
+            }
+        }
+    }, [dispatch, entryIndex, entryVisibleState, formOpts, metadata]);
 
     /**
      * Filter out packets based on the selected hosts and ports, sort them by time, and set the timeline data for D3 visualization
@@ -683,7 +707,7 @@ export default function TimelineEntry({ entryIndex }) {
         function zoomed(event) {
             const newXScale = event.transform.rescaleX(xScale);
 
-            if (alignTimeRef.current && !(shouldUpdateZoomRef.current)) dispatch(broadcastZoomUpdate({zoomState: { scale: event.transform.k, translateX: event.transform.x }, index: entryIndex }));
+            if (alignTimeRef.current && !(shouldUpdateZoomRef.current)) dispatch(broadcastZoomUpdate({ zoomState: { scale: event.transform.k, translateX: event.transform.x }, index: entryIndex }));
 
             // Update x-axis
             xAxisGroup.call(
@@ -727,7 +751,7 @@ export default function TimelineEntry({ entryIndex }) {
 
 
 
-    }, [metadata, entryIndex, timelineData, dispatch, d3ShouldRender, propDelays, startEpoch, endEpoch, alignTime, shouldUpdateZoom, alignedZoomState.translateX, alignedZoomState.scale]);
+    }, [ metadata, entryIndex, timelineData, dispatch, d3ShouldRender, propDelays, startEpoch, endEpoch, alignTime, shouldUpdateZoom, alignedZoomState.translateX, alignedZoomState.scale ]);
 
     useEffect(() => {
         if (formShouldReset) {
@@ -790,7 +814,7 @@ export default function TimelineEntry({ entryIndex }) {
     };
 
     return (
-        <Card className="text-center mb-3" id={`entry-${entryIndex}`}>
+        <Card className="text-center mb-3" id={`entry-${entryIndex}`} hidden={hidden}>
             <CloseButton className="align-self-end mt-3 me-3" onClick={() => {
                 dispatch(removeEntry(entryIndex));
                 setD3ShouldRender(true);

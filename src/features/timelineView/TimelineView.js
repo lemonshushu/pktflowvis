@@ -11,6 +11,7 @@ export default function TimelineView() {
     const timelineData = useSelector((state) => state.timelineView.timelineData);
     const shouldFocusLastEntry = useSelector((state) => state.timelineView.shouldFocusLastEntry);
     const [ timelineVisible, setTimelineVisible ] = useState(true);
+    const entryVisibleStates = useSelector((state) => state.timelineView.entryVisibleStates);
 
     useEffect(() => {
 
@@ -48,7 +49,7 @@ export default function TimelineView() {
             {timelineVisible ? (<Container>
                 {timelineData.map((entry, index) => {
                     return (
-                        <TimelineEntry entryIndex={index} key={index} />
+                        <TimelineEntry entryIndex={index} key={index} hidden={!entryVisibleStates[index]} />
                     );
                 })}
             </Container>) : null}
