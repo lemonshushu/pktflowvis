@@ -16,16 +16,18 @@ export default function TimelineView() {
 
         if (shouldFocusLastEntry) {
             dispatch(setShouldFocusLastEntry(false));
-            const lastEntry = document.getElementById(`entry-${timelineData.length - 1}`);
-            lastEntry.scrollIntoView({ behavior: "smooth", block: "end", inline: "nearest" });
+            if (timelineVisible) {
+                const lastEntry = document.getElementById(`entry-${timelineData.length - 1}`);
+                lastEntry.scrollIntoView({ behavior: "smooth", block: "end", inline: "nearest" });
 
-            // Flash the entry (shadow)
-            lastEntry.style.boxShadow = "0 0 10px 5px lightblue";
-            setTimeout(() => {
-                lastEntry.style.boxShadow = "none";
-            }, 1000);
+                // Flash the entry (shadow)
+                lastEntry.style.boxShadow = "0 0 10px 5px lightblue";
+                setTimeout(() => {
+                    lastEntry.style.boxShadow = "none";
+                }, 1000);
+            }
         }
-    }, [ dispatch, shouldFocusLastEntry, timelineData.length ]);
+    }, [dispatch, shouldFocusLastEntry, timelineData.length, timelineVisible]);
 
 
 
