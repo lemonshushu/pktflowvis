@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Button, Form } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
 import { Navigate } from 'react-router-dom';
-import { setCurrentView, setEpoches, setPackets } from '../data/dataSlice';
-import { setFilteredPackets, setFilterEpoch } from '../graphView/components/timeSliderSlice';
+import { setCurrentView, setPackets } from '../data/dataSlice';
+
 
 /**
  * This function parses a JSON file and returns the parsed object
@@ -39,20 +39,13 @@ export default function FileUpload() {
      * @param {File} selectedFile - The selected file
      */
     const onSubmitClick = async (selectedFile) => {
-        console.log("file upload")
         if (selectedFile != null) {
             try {
                 const parsedFile = await parseJson(selectedFile);
 
                 // Filter out only TCP & UDP packets
                 const packets = parsedFile.filter((packet) => packet._source.layers.ip && (packet._source.layers.tcp || packet._source.layers.udp));
-                const start = parseFloat(packets[0]._source.layers.frame["frame.time_epoch"])*10**6;
-                const end = parseFloat(packets[packets.length-1]._source.layers.frame["frame.time_epoch"])*10**6;
-
-                dispatch(setEpoches([start, end]));
-                dispatch(setFilterEpoch([0, end-start]));
                 dispatch(setPackets(packets));
-                dispatch(setFilteredPackets(packets));
             } catch (error) {
                 console.error('Failed to parse the file', error);
             }
@@ -62,14 +55,16 @@ export default function FileUpload() {
     };
 
     useEffect(() => {
-        if (packets) {
-            dispatch(setCurrentView('multi'));
-        }
+        return () => {
+            if (packets) {
+                dispatch(setCurrentView('graph'));
+            }
+        };
     }, [packets, dispatch]);
 
 
     return (
-        currentView === 'multi' ? <Navigate to="/vis" /> :
+        currentView === 'graph' ? <Navigate to="/graph" /> :
         <div className="d-flex align-items-center justify-content-center vh-100">
             <div>
                 <Form.Group controlId="formFile" className="mb-3" width="50%">

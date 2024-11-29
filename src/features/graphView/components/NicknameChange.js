@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { setSelectedIP, setSelectedPort, setNicknameMapping, resetNicknameMapping, setIsNicknameChangeOpen } from './controlPanelSlice';
+import { setNicknameMapping, resetNicknameMapping, setIsNicknameChangeOpen } from './controlPanelSlice';
 import { Button, Form } from 'react-bootstrap';
 import "./ControlPanel.css"
 
@@ -11,9 +11,9 @@ export default function NicknameChange() {
 
     const isSimulationStable = useSelector((state) => state.controlPanel.isSimulationStable);
     const isNicknameChangeOpen = useSelector((state) => state.controlPanel.isNicknameChangeOpen);
-    const selectedIP = useSelector((state) => state.controlPanel.selectedIP);
-    const selectedPort = useSelector((state) => state.controlPanel.selectedPort);
-    
+
+    const [selectedIP, setSelectedIP] = useState('');
+    const [selectedPort, setSelectedPort] = useState('');
     const [availablePorts, setAvailablePorts] = useState([]);
     const [nickname, setNickname] = useState('');
 
@@ -25,7 +25,6 @@ export default function NicknameChange() {
                 .filter(node => node.ip_addr === selectedIP)
                 .map(node => node.port);
             const uniquePorts = Array.from(new Set(ports));
-            uniquePorts.sort((a,b) => a-b);
             setAvailablePorts(uniquePorts);
         } else {
             setAvailablePorts([]);
@@ -34,8 +33,8 @@ export default function NicknameChange() {
     }, [selectedIP, mode]);
     
     useEffect(() => {
-        dispatch(setSelectedIP(''));
-        dispatch(setSelectedPort(''));
+        setSelectedIP('');
+        setSelectedPort('');
         setAvailablePorts([]);
     }, [mode]);
 
@@ -78,8 +77,8 @@ export default function NicknameChange() {
     };
 
     const handleResetAllNicknames = () => {
-        dispatch(setSelectedIP(''));
-        dispatch(setSelectedPort(''));
+        setSelectedIP('');
+        setSelectedPort('');
         setAvailablePorts([]);
         dispatch(resetNicknameMapping());
     };   
@@ -105,7 +104,7 @@ export default function NicknameChange() {
                             className="ip-selector"
                             style={{ width: '100%' }}
                             // TODO: change setSelectedIP and setSelectedPort as input to props or slice.
-                            onChange={(e) => { dispatch(setSelectedIP(e.target.value)); dispatch(setSelectedPort(""));}}
+                            onChange={(e) => { setSelectedIP(e.target.value); setSelectedPort(""); }}
                             value={selectedIP}
                         >
                             <option></option>
@@ -121,7 +120,7 @@ export default function NicknameChange() {
                             <Form.Label><strong>Port:</strong></Form.Label>
                             <Form.Select
                                 style={{ width: '100%' }}
-                                onChange={(e) => dispatch(setSelectedPort(e.target.value))}
+                                onChange={(e) => setSelectedPort(e.target.value)}
                                 value={selectedPort}
                             >
                                 <option></option>

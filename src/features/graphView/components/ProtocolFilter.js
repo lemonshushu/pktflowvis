@@ -1,10 +1,8 @@
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { setIsShowProtocolsOpen, setShowL4Protocol, setShowL7Protocol, toggleL4Protocol, toggleL7Protocol, setFilteringMode } from './controlPanelSlice';
+import { setIsShowProtocolsOpen, setShowL4Protocol, setShowL7Protocol, toggleL4Protocol, toggleL7Protocol } from './controlPanelSlice';
 import "./ControlPanel.css"
 import { Form } from 'react-bootstrap';
-import { ToggleButtonGroup, ToggleButton } from 'react-bootstrap';
-
 import FormCheckLabel from 'react-bootstrap/FormCheckLabel'
 
 export default function ProtocolFilter() {
@@ -20,12 +18,8 @@ export default function ProtocolFilter() {
     // 선택된 프로토콜 상태 가져오기 (매핑)
     const selectedL4Protocols = useSelector((state) => state.controlPanel.selectedL4Protocols);
     const selectedL7Protocols = useSelector((state) => state.controlPanel.selectedL7Protocols);
-    const filteringMode = useSelector((state) => state.controlPanel.filteringMode);
 
     const dispatch = useDispatch(); 
-
-
-  const handleChange = (val) => {dispatch(setFilteringMode(val))};
 
     return (
         mode === 'port' && (
@@ -46,46 +40,6 @@ export default function ProtocolFilter() {
             {/* Show Protocols 메뉴 아이템 */}
             {isShowProtocolsOpen && (
                 <div className='submenu-container'>
-                    <ToggleButtonGroup
-                        style={{marginBottom: "10px"}}
-                        type="radio"
-                        name="options"
-                        value={filteringMode}
-                        onChange={handleChange}
-                        className="d-flex w-100 toggle-button-group"
-                    >
-                        <ToggleButton
-                            id="tbg-radio-1"
-                            value="or"
-                            className="flex-fill"
-                            variant="outline-primary"
-                            style={{
-                            height: "30px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            padding: "0",
-                            }}
-                        >
-                            OR
-                        </ToggleButton>
-                        <ToggleButton
-                            id="tbg-radio-2"
-                            value="and"
-                            className="flex-fill"
-                            variant="outline-primary"
-                            style={{
-                            height: "30px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            padding: "0",
-                            }}
-                        >
-                            AND
-                        </ToggleButton>
-                    </ToggleButtonGroup>
-
                     <div 
                         className='menubar'
                         onClick={() => dispatch(setShowL4Protocol(!showL4Protocol))}
