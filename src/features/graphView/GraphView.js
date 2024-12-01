@@ -1,21 +1,27 @@
 import * as d3 from 'd3';
-import React, { useEffect, useRef, useState } from 'react';
-import { Button } from 'react-bootstrap';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Navigate } from 'react-router-dom';
 import ControlPanel from './components/ControlPanel';
 
-import { setCurrentView } from '../data/dataSlice';
-import { addEntry, setFormOpts } from '../timelineView/timelineViewSlice';
-import { setIsSimulationStable, addProtocols } from './components/controlPanelSlice';
-import { setHostGraphData, setPortGraphData } from './graphViewSlice';
+import { addEntry, setFormOpts, setShouldFocusLastEntry } from '../timelineView/timelineViewSlice';
+import {
+    addProtocols,
+    setIsNicknameChangeOpen,
+    setIsShowProtocolsOpen,
+    setIsSimulationStable,
+    setSelectedIP,
+    setSelectedPort,
+    setShowL4Protocol,
+    setShowL7Protocol,
+    toggleL4Protocol,
+    toggleL7Protocol
+} from './components/controlPanelSlice';
+import { setHostGraphData, setPortGraphData, setShowInfo } from './graphViewSlice';
 
-import { faChevronRight, faL } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import './GraphView.css';
-import { Top } from '../Menubar';
-import { ArrowExport20Regular } from '@fluentui/react-icons'
-//import "react-toggle/style.css";
+//import { Top } from '../Menubar';
+//import { setCurrentView } from '../data/dataSlice';
+import { ArrowExport20Regular } from '@fluentui/react-icons';
 
 export default function GraphView() {
     const packets = useSelector((state) => state.data.packets);
@@ -23,29 +29,28 @@ export default function GraphView() {
     const hostData = useSelector((state) => state.graphView.hostGraphData);
     const portData = useSelector((state) => state.graphView.portGraphData);
     const nicknameMapping = useSelector((state) => state.controlPanel.nicknameMapping);
+
     const mode = useSelector((state) => state.graphView.mode);
-    const currentView = useSelector((state) => state.data.currentView);
     const isSimulationStable = useSelector((state) => state.controlPanel.isSimulationStable);
     const isShowProtocolsOpen = useSelector((state) => state.controlPanel.isShowProtocolsOpen);
+    const showL4Protocol = useSelector((state) => state.controlPanel.showL4Protocol);
+    const showL7Protocol = useSelector((state) => state.controlPanel.showL7Protocol);
     const selectedL4Protocols = useSelector((state) => state.controlPanel.selectedL4Protocols);
     const selectedL7Protocols = useSelector((state) => state.controlPanel.selectedL7Protocols);
+    const filteringMode = useSelector((state) => state.controlPanel.filteringMode);
+    const filteredPackets = useSelector((state) => state.timeSlider.filteredPackets);
 
     const simulationRef = useRef(null);
     const linkRef = useRef(null);
     const nodeRef = useRef(null);
     const nodesRef = useRef([]);
+    const labelsRef = useRef(null);
     const svgRef = useRef(null); // SVG 요소에 대한 참조를 저장할 ref
     const zoomRef = useRef(null); // zoom behavior에 대한 참조를 저장할 ref
     const isSimulationStableRef = useRef(isSimulationStable);
 
     // 우클릭 메뉴 관련
-    const [showInfo, setShowInfo] = useState(false);
-    const [showNodeInfo, setShowNodeInfo] = useState(false);
-    const [showLinkInfo, setShowLinkInfo] = useState(false);
-    const [nodeMenuVisible, setNodeMenuVisible] = useState(false);
-    const [nodeMenuPosition, setNodeMenuPosition] = useState({ x: 0, y: 0 });
-    const [linkMenuVisible, setLinkMenuVisible] = useState(false);
-    const [linkMenuPosition, setLinkMenuPosition] = useState({ x: 0, y: 0 });
+    const showInfo = useSelector((state) => state.graphView.showInfo);
 
     function updateIsSimulationStable(value) {
         dispatch(setIsSimulationStable(value));
@@ -54,11 +59,11 @@ export default function GraphView() {
 
     const dispatch = useDispatch();
 
-    const initHostData = () => {
+    const initHostData = useCallback(() => {
         // Initialize host data with nodes and links
         const data = { nodes: [], links: [] };
 
-        packets.forEach((packet) => {
+        filteredPackets.forEach((packet) => {
             const src_ip = packet._source.layers.ip[ 'ip.src_host' ];
             const dst_ip = packet._source.layers.ip[ 'ip.dst_host' ];
             const frame_size = Number(packet._source.layers.frame[ 'frame.len' ]);
@@ -79,41 +84,47 @@ export default function GraphView() {
 
             // Add link
             if (!data.links.find(link => link.src_ip === src_ip && link.dst_ip === dst_ip)) {
-                data.links.push({ source: src_ip, target: dst_ip, src_ip: src_ip, dst_ip: dst_ip });
+                data.links.push({ source: src_ip, target: dst_ip, src_ip: src_ip, dst_ip: dst_ip, traffic_volume: frame_size });
+            } else {
+                data.links.find(link => link.src_ip === src_ip && link.dst_ip === dst_ip).traffic_volume += frame_size;
             }
         });
 
         return data;
-    };
+    }, [ filteredPackets ]);
 
-    const initPortData = () => {
+    const TrafficVolumeToStrokeWidth = ((traffic_volume) => {
+        return 0.5*Math.log10(traffic_volume);
+    });
+
+    const initPortData = useCallback(() => {
         // Initialize port data with nodes and links
         const data = { nodes: [], links: [] };
         const timelineViewFormOpts = [ { ip_addr: "", ports: [ "" ] } ];
         const allL4Protocols = new Set();
         const allL7Protocols = new Set();
 
-        packets.forEach((packet) => {
-            const src_ip = packet._source.layers.ip['ip.src_host'];
-            const dst_ip = packet._source.layers.ip['ip.dst_host'];
+        filteredPackets.forEach((packet) => {
+            const src_ip = packet._source.layers.ip[ 'ip.src_host' ];
+            const dst_ip = packet._source.layers.ip[ 'ip.dst_host' ];
             const src_port = packet._source.layers.tcp
-                ? packet._source.layers.tcp['tcp.srcport']
-                : packet._source.layers.udp['udp.srcport'];
+                ? packet._source.layers.tcp[ 'tcp.srcport' ]
+                : packet._source.layers.udp[ 'udp.srcport' ];
             const dst_port = packet._source.layers.tcp
-                ? packet._source.layers.tcp['tcp.dstport']
-                : packet._source.layers.udp['udp.dstport'];
-            const frame_size = Number(packet._source.layers.frame['frame.len']);
+                ? packet._source.layers.tcp[ 'tcp.dstport' ]
+                : packet._source.layers.udp[ 'udp.dstport' ];
+            const frame_size = Number(packet._source.layers.frame[ 'frame.len' ]);
             const l4_proto = packet._source.layers.tcp ? 'TCP' : 'UDP';
             const layers = Object.keys(packet._source.layers);
-            let temp_l7_proto = layers[4] === 'tcp.segments' ? layers[5]?.toUpperCase() : layers[4]?.toUpperCase();
+            let temp_l7_proto = layers[ 4 ] === 'tcp.segments' ? layers[ 5 ]?.toUpperCase() : layers[ 4 ]?.toUpperCase();
             const l7_proto = temp_l7_proto === undefined ? "None" : temp_l7_proto;
 
             allL4Protocols.add(l4_proto);
             allL7Protocols.add(l7_proto);
-    
+
             const src_id = `${src_ip}:${src_port}`;
             const dst_id = `${dst_ip}:${dst_port}`;
-    
+
             // Add source node
             let src_node = data.nodes.find((node) => node.id === src_id);
             if (!src_node) {
@@ -122,13 +133,13 @@ export default function GraphView() {
                     ip_addr: src_ip,
                     port: src_port,
                     traffic_volume: frame_size,
-                    l4_proto: new Set([l4_proto]),
-                    l7_proto: new Set([l7_proto]),
+                    l4_proto: new Set([ l4_proto ]),
+                    l7_proto: new Set([ l7_proto ]),
                 };
                 data.nodes.push(src_node);
 
                 if (!timelineViewFormOpts.find((port) => port.ip_addr === src_ip)) {
-                    timelineViewFormOpts.push({ ip_addr: src_ip, ports: ['', src_port] });
+                    timelineViewFormOpts.push({ ip_addr: src_ip, ports: [ '', src_port ] });
                 } else {
                     timelineViewFormOpts
                         .find((port) => port.ip_addr === src_ip)
@@ -137,7 +148,7 @@ export default function GraphView() {
             } else {
                 src_node.traffic_volume += frame_size;
                 src_node.l4_proto.add(l4_proto);
-                
+
                 // l7_proto 처리
                 if (l7_proto === 'None') {
                     // 이미 다른 프로토콜이 없으면 'None'을 추가
@@ -160,13 +171,13 @@ export default function GraphView() {
                     ip_addr: dst_ip,
                     port: dst_port,
                     traffic_volume: frame_size,
-                    l4_proto: new Set([l4_proto]),
-                    l7_proto: new Set([l7_proto]),
+                    l4_proto: new Set([ l4_proto ]),
+                    l7_proto: new Set([ l7_proto ]),
                 };
                 data.nodes.push(dst_node);
 
                 if (!timelineViewFormOpts.find((port) => port.ip_addr === dst_ip)) {
-                    timelineViewFormOpts.push({ ip_addr: dst_ip, ports: ['', dst_port] });
+                    timelineViewFormOpts.push({ ip_addr: dst_ip, ports: [ '', dst_port ] });
                 } else {
                     timelineViewFormOpts
                         .find((port) => port.ip_addr === dst_ip)
@@ -175,7 +186,7 @@ export default function GraphView() {
             } else {
                 dst_node.traffic_volume += frame_size;
                 dst_node.l4_proto.add(l4_proto);
-                
+
                 // l7_proto 처리
                 if (l7_proto === 'None') {
                     if (dst_node.l7_proto.size === 0) {
@@ -188,12 +199,12 @@ export default function GraphView() {
                     dst_node.l7_proto.add(l7_proto);
                 }
             }
-    
+
             // Add link
             let link = data.links.find(
                 (link) => link.source === src_id && link.target === dst_id
             );
-    
+
             if (!link) {
                 link = {
                     source: src_id,
@@ -202,12 +213,14 @@ export default function GraphView() {
                     src_port: src_port,
                     dst_ip: dst_ip,
                     dst_port: dst_port,
-                    l4_proto: new Set([l4_proto]),
-                    l7_proto: new Set([l7_proto]),
+                    l4_proto: new Set([ l4_proto ]),
+                    l7_proto: new Set([ l7_proto ]),
+                    traffic_volume: frame_size,
                 };
                 data.links.push(link);
             } else {
                 link.l4_proto.add(l4_proto);
+                link.traffic_volume += frame_size;
                 // Handle L7 protocol 'None' case
                 if (l7_proto === 'None') {
                     if (link.l7_proto.size === 0) {
@@ -220,7 +233,7 @@ export default function GraphView() {
                     link.l7_proto.add(l7_proto);
                 }
             }
-        });
+    });
 
         // Comparator function to sort protocols with 'None' at the end
         const protocolComparator = (a, b) => {
@@ -235,12 +248,12 @@ export default function GraphView() {
             node.l7_proto = Array.from(node.l7_proto);
         });
 
-         // Convert Sets to Arrays before storing
+        // Convert Sets to Arrays before storing
         data.links.forEach((link) => {
             link.l4_proto = Array.from(link.l4_proto);
             link.l7_proto = Array.from(link.l7_proto);
         });
-        console.log(data.links);
+        // console.log(data.links);
 
         // Sort ports in AvailableHostPorts in ascending order
         timelineViewFormOpts.forEach(port => port.ports.sort((a, b) => a - b));
@@ -250,25 +263,22 @@ export default function GraphView() {
 
 
         dispatch(setFormOpts(timelineViewFormOpts));
-        dispatch(addProtocols({
-            l4Protocols: Array.from(allL4Protocols).sort(protocolComparator),
-            l7Protocols: Array.from(allL7Protocols).sort(protocolComparator),
+        if (!portData) {
+            dispatch(addProtocols({
+                l4Protocols: Array.from(allL4Protocols).sort(protocolComparator),
+                l7Protocols: Array.from(allL7Protocols).sort(protocolComparator),
         }));
-        console.log(data);
+        }
+        //console.log(data);
         return data;
-    };
-
-
-    useEffect(() => {
-        setCurrentView('graph');
-    }, [ dispatch ]);
+    }, [dispatch, filteredPackets]);
 
     useEffect(() => {
-        if (packets && !hostData) {
+        if (filteredPackets) {
             dispatch(setHostGraphData(initHostData()));
             dispatch(setPortGraphData(initPortData()));
         }
-    }, [ dispatch, hostData, portData ]);
+    }, [ filteredPackets, initHostData, initPortData]);
 
     useEffect(() => {
         if (!hostData || !portData) return;
@@ -394,31 +404,27 @@ export default function GraphView() {
                 .selectAll("line")
                 .data(links)
                 .join("line")
-                .attr('opacity', d=>getOpacity(d.l4_proto, d.l7_proto))
-                .attr("stroke-width", d => Math.sqrt(d.value))
+                .attr('opacity', d => getOpacity(d.l4_proto, d.l7_proto))
+                .attr("stroke-width", d => TrafficVolumeToStrokeWidth(d.traffic_volume))
                 .attr("marker-end", "url(#arrowhead)")
                 // Highlight the link with black stroke on hover && make it thicker
-                .on("mouseover", function (event) {
-                    d3.select(this).attr("stroke", "#000").attr("stroke-width", 2);
-                })
-                .on("mouseout", function (event) {
-                    d3.select(this).attr("stroke", "#999").attr("stroke-width", 1);
-                })
+                // .on("mouseover", function (event) {
+                //     d3.select(this).attr("stroke", "#000").attr("stroke-width", 2);
+                // })
+                // .on("mouseout", function (event) {
+                //     d3.select(this).attr("stroke", "#999").attr("stroke-width", 1);
+                // })
                 .on("click", (event) => {
                     const hostA = event.srcElement.__data__.src_ip;
                     const portA = event.srcElement.__data__.src_port;
                     const hostB = event.srcElement.__data__.dst_ip;
                     const portB = event.srcElement.__data__.dst_port;
                     dispatch(addEntry({ metadata: { hostA, portA, hostB, portB }, formSelections: { hostA, portA, hostB, portB, radioASelected: true } }));
-                    dispatch(setCurrentView('timeline'));
+                    dispatch(setShouldFocusLastEntry(true));
                 })
-                .on("contextmenu", function (event) {
-                    event.preventDefault(); // 브라우저 기본 우클릭 메뉴 비활성화
-                    setLinkMenuPosition({ x: event.clientX, y: event.clientY });
-                    setLinkMenuVisible(true);
-                });
 
             linkRef.current = link;
+            svg.on('mousemove', throttledHandleMouseMove);
             
             // Add nodes
             const node = container.append("g")
@@ -430,17 +436,11 @@ export default function GraphView() {
                 .attr("r", d => sizeScale(d.traffic_volume))
                 .attr("fill", d => colorScale(d.ip_addr))
                 // .on("dblclick", resetNodePosition)
-                .on("dblclick.zoom", null) // Prevent zoom on double-click on nodes
                 .on("click", (event, d) => {
                     dispatch(addEntry({ metadata: null, formSelections: { hostA: d.ip_addr, portA: d.port, hostB: "", portB: "", radioASelected: true } })); // Add new entry in TimelineView
-                    dispatch(setCurrentView('timeline'));
                     d3.selectAll(".tooltip").remove();
+                    dispatch(setShouldFocusLastEntry(true));
                 })
-                .on("contextmenu", function (event) {
-                    event.preventDefault(); // 브라우저 기본 우클릭 메뉴 비활성화
-                    setNodeMenuPosition({ x: event.clientX, y: event.clientY });
-                    setNodeMenuVisible(true);
-                });
             
             nodeRef.current = node;
 
@@ -458,7 +458,7 @@ export default function GraphView() {
             node.on("mouseover", (event, d) => {
                 tooltip
                     .style("opacity", 1)
-                    .html(getTooltipContent(d, mode));
+                    .html(getTooltipContentNode(d, mode));
 
                 // Highlight the node with outline on hover
                 d3.select(event.target).attr("stroke", "#000");
@@ -473,15 +473,32 @@ export default function GraphView() {
                     tooltip.style("opacity", 0);
                     // Remove the outline on mouseout
                     d3.select(event.target).attr("stroke", null);
+                })
+                .on('contextmenu', (event, d) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    showCustomContextMenu(event.pageX, event.pageY, d);
                 });
 
+            link.on("mouseover", (event, d) => {
+                tooltip
+                    .style("opacity", 1)
+                    .html(getTooltipContentLink(d));
+            }).on("mousemove", event => {
+                tooltip.style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 20) + "px");
+            }).on("mouseout", () => {
+                tooltip.style("opacity", 0);
+            });
+
             // Add labels
-            const labels = container.append("g")
+            const labels = container.append("g").attr("id", "labels")
                 .selectAll("text")
                 .data(nodes)
                 .join("text")
                 .text(d => getNicknameLabel(d, mode))
-                // .attr('opacity', d=> getOpacity(d.l4_proto, d.l7_proto))
+                .attr('fill-opacity', d => getOpacity(d.l4_proto, d.l7_proto))
                 .attr("font-size", "10px")
                 .attr("fill", "#555")
                 .attr("dy", "-1em")
@@ -490,6 +507,36 @@ export default function GraphView() {
                     event.stopPropagation();
                 });
 
+            labelsRef.current = labels;
+
+            // If there are more than 5 nodes that have the same IP address, add an IP address label in the center of the nodes
+            if (mode === 'port') {
+                const ipAddrs = Array.from(new Set(nodes.map(d => d.ip_addr)));
+                const ipAddrsWithMultipleNodes = []; // {ip_addr: string, x: number, y: number}[]
+                ipAddrs.forEach(ipAddr => {
+                    const nodesWithSameIp = nodes.filter(d => d.ip_addr === ipAddr);
+                    if (nodesWithSameIp.length > 5) {
+                        const x = d3.mean(nodesWithSameIp, d => d.x);
+                        const y = d3.mean(nodesWithSameIp, d => d.y);
+                        ipAddrsWithMultipleNodes.push({ ip_addr: ipAddr, x, y });
+                    }
+                });
+
+                // Print ipAddrsWithMultipleNodes
+                console.log(ipAddrsWithMultipleNodes);
+                container.append("g").attr("id", "ipAddrLabels")
+                    .selectAll("text")
+                    .data(ipAddrsWithMultipleNodes)
+                    .join("text")
+                    .text(d => d.ip_addr)
+                    .attr("font-size", "12px")
+                    .attr("fill", "#555")
+                    .attr("dx", "5em")
+                    .attr("text-anchor", "middle")
+                    .attr("font-weight", "bold")
+                    .attr("x", d => d.x)
+                    .attr("y", d => d.y);
+            }
 
             simulation.stop();
 
@@ -578,68 +625,27 @@ export default function GraphView() {
 
     }, [ hostData, portData, mode ]);
 
-    useEffect(() => {
-        if (!hostData || !portData) return;
-
-        d3.select(graphRef.current).selectAll("text")
-            .text(d => getNicknameLabel(d, mode));
-
-        const tooltip = d3.select("body").select(".tooltip");
-        d3.select(graphRef.current).selectAll("circle")
-            .on("mouseover", (event, d) => {
-                tooltip
-                    .style("opacity", 1)
-                    .html(getTooltipContent(d, mode));
-            })
-            .on("mousemove", event => {
-                tooltip
-                    .style("left", (event.pageX + 10) + "px")
-                    .style("top", (event.pageY - 20) + "px");
-            })
-            .on("mouseout", () => {
-                tooltip.style("opacity", 0);
-            });
-    }, [ nicknameMapping, mode ]);
-
-    useEffect(() => {
-        if (nodeRef.current && linkRef.current) {
-            if (!isShowProtocolsOpen) {
-                nodeRef.current.attr('opacity', 1);
-                linkRef.current.attr('opacity', 1);
-            } else {
-                nodeRef.current.attr('opacity', d => getOpacity(d.l4_proto, d.l7_proto));
-                linkRef.current.attr('opacity', d => getOpacity(d.l4_proto, d.l7_proto));
-            }
-        }
-    }, [isShowProtocolsOpen, selectedL4Protocols, selectedL7Protocols]);
-
-    const getOpacity = (l4_proto, l7_proto) => {
-        if (isShowProtocolsOpen && mode === 'port') {
-            let isSelected = false;
-            // console.log(l7_proto);
-            l4_proto.forEach((protocol) => {isSelected = isSelected || selectedL4Protocols[protocol];});
-            l7_proto.forEach((protocol) => {isSelected = isSelected || selectedL7Protocols[protocol];});
-            return isSelected ? 1 : 0.1;
-        } else {
-            return 1;
-        }
-    }
-
-    const getNicknameLabel = (node, mode) => {
+    const getNicknameLabel = useCallback((node, mode) => {
+        if (!node) return;
         if (mode === 'host') {
             return nicknameMapping[ node.ip_addr ] || node.ip_addr;
         } else {
+            if (!portData) return;
+            // If there are more than 5 nodes that have the same IP adress, only return the port number as the label
+            if (portData.nodes.filter(n => n.ip_addr === node.ip_addr).length > 5) {
+                return `:${node.port}`;
+            }
             const key = `${node.ip_addr}:${node.port}`;
             return nicknameMapping[ key ] || `${node.ip_addr}:${node.port}`;
         }
-    };
+    }, [nicknameMapping, portData]);
 
-    const getTooltipContent = (node, mode) => {
+    const getTooltipContentNode = useCallback((node, mode) => {
         if (mode === 'host') {
             return `${nicknameMapping[ node.ip_addr ] ? `${nicknameMapping[ node.ip_addr ]}<br>` : ''}IP: ${node.ip_addr}<br>Traffic Volume: ${node.traffic_volume}`;
         } else {
             const key = `${node.ip_addr}:${node.port}`;
-            
+
             // L7 프로토콜 처리
             let l7_proto_display;
             if (Array.isArray(node.l7_proto)) {
@@ -656,6 +662,177 @@ export default function GraphView() {
             }
 
             return `${nicknameMapping[ key ] ? `${nicknameMapping[ key ]}<br>` : ''}IP: ${node.ip_addr}<br>Port: ${node.port}<br>Traffic Volume: ${node.traffic_volume}<br>L4 Protocol: ${node.l4_proto.join(", ")}<br>L7 Protocol: ${l7_proto_display}`;
+        }
+    }, [ nicknameMapping ]);
+
+    useEffect(() => {
+        if (!hostData || !portData) return;
+
+        d3.select(graphRef.current).selectAll("#labels").selectAll("text")
+            .text(d => getNicknameLabel(d, mode));
+
+        const tooltip = d3.select("body").select(".tooltip");
+        d3.select(graphRef.current).selectAll("circle")
+            .on("mouseover", (event, d) => {
+                tooltip
+                    .style("opacity", 1)
+                    .html(getTooltipContentNode(d, mode));
+            })
+            .on("mousemove", event => {
+                tooltip
+                    .style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 20) + "px");
+            })
+            .on("mouseout", () => {
+                tooltip.style("opacity", 0);
+            });
+    }, [nicknameMapping, mode, hostData, portData, getNicknameLabel, getTooltipContentNode]);
+
+    useEffect(() => {
+        if (nodeRef.current && linkRef.current) {
+            if (!isShowProtocolsOpen) {
+                nodeRef.current.attr('opacity', 1);
+                linkRef.current.attr('opacity', 1);
+                labelsRef.current.attr('fill-opacity', 1);
+            } else {
+                nodeRef.current.attr('opacity', d => getOpacity(d.l4_proto, d.l7_proto));
+                linkRef.current.attr('opacity', d => getOpacity(d.l4_proto, d.l7_proto));
+                labelsRef.current.attr('fill-opacity', d => getOpacity(d.l4_proto, d.l7_proto));
+            }
+        }
+    }, [ isShowProtocolsOpen, selectedL4Protocols, selectedL7Protocols, filteringMode ]);
+
+    const hoveredLines = new Set();
+
+    const handleMouseMove = (event) => {
+        const [ mouseX, mouseY ] = d3.pointer(event);
+
+        const elements = document.elementsFromPoint(event.clientX, event.clientY);
+
+        const linesUnderMouse = elements.filter(el => el.tagName === 'line' && el.__data__);
+
+        // mouseover 이벤트 처리
+        linesUnderMouse.forEach(lineElement => {
+            if (!hoveredLines.has(lineElement)) {
+                hoveredLines.add(lineElement);
+                d3.select(lineElement).attr('stroke', '#999').attr('stroke-width', 2 * TrafficVolumeToStrokeWidth(lineElement.__data__.traffic_volume));
+            }
+        });
+
+        // mouseout 이벤트 처리
+        hoveredLines.forEach(lineElement => {
+            if (!linesUnderMouse.includes(lineElement)) {
+                hoveredLines.delete(lineElement);
+                d3.select(lineElement).attr('stroke', '#999').attr('stroke-width', TrafficVolumeToStrokeWidth(lineElement.__data__.traffic_volume));
+            }
+        });
+    };
+
+    const throttle = (func, delay) => {
+        let lastCall = 0;
+        return function (...args) {
+            const now = new Date().getTime();
+            if (now - lastCall < delay) {
+                return;
+            }
+            lastCall = now;
+            return func(...args);
+        };
+    };
+
+    // handleMouseMove 함수를 쓰로틀링합니다.
+    const throttledHandleMouseMove = throttle(handleMouseMove, 50);
+
+    const showCustomContextMenu = (x, y, nodeData) => {
+        d3.select(".custom-context-menu").remove();
+
+        // 컨텍스트 메뉴를 위한 div 요소를 생성합니다.
+        const menu = d3.select("body")
+            .append("div")
+            .attr("class", "custom-context-menu")
+            .style("position", "absolute")
+            .style("left", `${x}px`)
+            .style("top", `${y}px`)
+            .style("background", "#fff")
+            .style("border", "1px solid #ccc")
+            .style("padding", "10px")
+            .style("border-radius", "4px")
+            .style("box-shadow", "0px 2px 10px rgba(0,0,0,0.2)")
+            .style("z-index", 1000) // 메뉴가 다른 요소 위에 표시되도록 합니다.
+            .on("mouseleave", () => {
+                menu.remove();
+            });
+
+        const ipAddr = nodeData.ip_addr;
+        const port = mode === 'port' ? `:${nodeData.port}` : '';
+        const ipPortPair = `${ipAddr}${port}`;
+
+        menu.append("div")
+            .text(`Change Nickname of ${ipPortPair}`)
+            .style("margin-bottom", "5px")
+            .on('click', () => {
+                dispatch(setSelectedIP(ipAddr));
+                if (mode === 'port') {
+                    dispatch(setSelectedPort(nodeData.port));
+                }
+                dispatch(setIsNicknameChangeOpen(true));
+            });
+
+
+        if (port) {
+            menu.append("div")
+                .text("Choosing L4 Protocol of this Host as Filter") //getL4MenuText(nodeData.l4_proto))
+                .style("margin-bottom", "5px")
+                .on('click', () => {
+                    nodeData.l4_proto.forEach((protocol) => dispatch(toggleL4Protocol(protocol)));
+                    if (!isShowProtocolsOpen) { dispatch(setIsShowProtocolsOpen(true)); }
+                    if (!showL4Protocol) { dispatch(setShowL4Protocol(true)); }
+                });
+
+            menu.append("div")
+                .text("Choosing L7 Protocol of this Host as Filter") //getL7MenuText(nodeData.l7_proto))
+                .style("margin-bottom", "5px")
+                .on('click', () => {
+                    nodeData.l7_proto.forEach((protocol) => dispatch(toggleL7Protocol(protocol)));
+                    if (!isShowProtocolsOpen) { dispatch(setIsShowProtocolsOpen(true)); }
+                    if (!showL7Protocol) { dispatch(setShowL7Protocol(true)); }
+                });
+        }
+    };
+
+    const getOpacity = (l4_proto, l7_proto) => {
+        if (isShowProtocolsOpen && mode === 'port') {
+            let isL4Selected = false;
+            let isL7Selected = false;
+            // console.log(l7_proto);
+            l4_proto.forEach((protocol) => { isL4Selected = isL4Selected || selectedL4Protocols[ protocol ]; });
+            l7_proto.forEach((protocol) => { isL7Selected = isL7Selected || selectedL7Protocols[ protocol ]; });
+
+            return (filteringMode === "or" ? isL4Selected || isL7Selected : isL4Selected && isL7Selected) ? 1 : 0.1;
+        } else {
+            return 1;
+        }
+    };
+
+    const getTooltipContentLink = (link) => {
+        if (mode === 'host') {
+            return `Traffic Volume: ${link.traffic_volume}`;
+        } else {
+            let l7_proto_display;
+            if (Array.isArray(link.l7_proto)) {
+                if (link.l7_proto.length > 1) {
+                    // 'None'을 제외한 프로토콜 리스트 생성
+                    l7_proto_display = link.l7_proto.filter((proto) => proto !== 'None');
+                } else {
+                    l7_proto_display = link.l7_proto;
+                }
+                // 배열을 문자열로 변환
+                l7_proto_display = l7_proto_display.join(', ');
+            } else {
+                l7_proto_display = link.l7_proto;
+            }
+
+            return `Traffic Volume: ${link.traffic_volume}<br>L4 Protocol: ${link.l4_proto.join(", ")}<br>L7 Protocol: ${l7_proto_display}`;
         }
     };
 
@@ -681,18 +858,62 @@ export default function GraphView() {
         }
     }
 
-    const onNavigateToGraph = () => {
-        dispatch(setCurrentView('graph'));
-    };
+    return (
+        <div>
+            <div>
+                <ControlPanel resetAllNodes={resetAllNodes} />
+                <svg ref={graphRef} style={{ width: '100vw', height: '100vh' }} />
+            </div>
+        </div>
+        );
+}
 
-    const onNavigateToTimeline = () => {
-        dispatch(setCurrentView('timeline'));
+// <div id="cy" style={{ width: '100%', height: '93%', marginTop: '40px' }} />
+// <div onClick={handleClickOutside}>
+//   <Top onNavigateToTimeline={onNavigateToTimeline} onNavigateToGraph={onNavigateToGraph} />
+/*
+.on("contextmenu", function (event) {
+                    event.preventDefault(); // 브라우저 기본 우클릭 메뉴 비활성화
+                    setNodeMenuPosition({ x: event.clientX, y: event.clientY });
+                    setNodeMenuVisible(true);
+                });
 
-        // Clear all tooltips
-        d3.selectAll(".tooltip").remove();
-    };
+{nodeMenuVisible && (
+                <div
+                style={{
+                    position: "absolute",
+                    top: nodeMenuPosition.y,
+                    left: nodeMenuPosition.x,
+                    backgroundColor: "white",
+                    border: "1px solid #ccc",
+                    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+                    borderRadius: "4px",
+                    zIndex: 1000,
+                    padding: "10px",
+                }}
+                >
+                <div
+                    style={{
+                    padding: "8px",
+                    cursor: "pointer",
+                    }}
+                    onClick={() => handleNodeMenuClickDetails()}
+                >
+                    Show Details
+                </div>
+                <div
+                    style={{
+                    padding: "8px",
+                    cursor: "pointer",
+                    }}
+                    onClick={() => handleNodeMenuClick("기타")}
+                >
+                    기타
+                </div>
+                </div>
+            )}
 
-    // menu event handler
+// menu event handler
     const handleNodeMenuClick = (option) => {
         alert(`${option} 클릭됨!`);
 
@@ -705,135 +926,4 @@ export default function GraphView() {
 
         setNodeMenuVisible(false); // 메뉴 숨기기
     };
-
-    const handleLinkMenuClick = (option) => {
-        alert(`${option} 클릭됨!`);
-
-        setLinkMenuVisible(false);
-    };
-    const handleLinkMenuClickDetails = (option) => {
-        setShowInfo(true);
-        setShowNodeInfo(false);
-        setShowLinkInfo(true);
-
-        setLinkMenuVisible(false);
-    };
-    
-    const handleClickOutside = () => {
-        setNodeMenuVisible(false);
-        setLinkMenuVisible(false);
-    };
-
-    switch (currentView) {
-        case 'fileUpload':
-            return <Navigate to="/" />;
-        case 'graph':
-            return (
-                <div onClick={handleClickOutside}>
-                    <Top onNavigateToTimeline={onNavigateToTimeline} onNavigateToGraph={onNavigateToGraph} />
-                    <div style={{ position: "relative", width: "100vw", height: "100vh" }}>
-                        <ControlPanel resetAllNodes={resetAllNodes} />
-                        <div style={{ position: "absolute", right: 40, top: "50vh", zIndex: 10 }}>
-                            <Button className="rounded-circle" variant="light" onClick={onNavigateToTimeline} ><FontAwesomeIcon icon={faChevronRight} size="2xl" /></Button>
-                        </div>
-                        <svg ref={graphRef} style={{ width: '100%', height: '100%' }} />
-                    </div>
-                    {nodeMenuVisible && (
-                        <div
-                        style={{
-                            position: "absolute",
-                            top: nodeMenuPosition.y,
-                            left: nodeMenuPosition.x,
-                            backgroundColor: "white",
-                            border: "1px solid #ccc",
-                            boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-                            borderRadius: "4px",
-                            zIndex: 1000,
-                            padding: "10px",
-                        }}
-                        >
-                        <div
-                            style={{
-                            padding: "8px",
-                            cursor: "pointer",
-                            }}
-                            onClick={() => handleNodeMenuClickDetails()}
-                        >
-                            Show Details
-                        </div>
-                        <div
-                            style={{
-                            padding: "8px",
-                            cursor: "pointer",
-                            }}
-                            onClick={() => handleNodeMenuClick("기타")}
-                        >
-                            기타
-                        </div>
-                        </div>
-                    )}
-                    {linkMenuVisible && (
-                        <div
-                        style={{
-                            position: "absolute",
-                            top: linkMenuPosition.y,
-                            left: linkMenuPosition.x,
-                            backgroundColor: "white",
-                            border: "1px solid #ccc",
-                            boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-                            borderRadius: "4px",
-                            zIndex: 1000,
-                            padding: "10px",
-                        }}
-                        >
-                        <div
-                            style={{
-                            padding: "8px",
-                            cursor: "pointer",
-                            }}
-                            onClick={() => handleLinkMenuClickDetails()}
-                        >
-                            Show Details
-                        </div>
-                        <div
-                            style={{
-                            padding: "8px",
-                            cursor: "pointer",
-                            }}
-                            onClick={() => handleLinkMenuClick("기타")}
-                        >
-                            기타
-                        </div>
-                        </div>
-                    )}
-                    
-                    {showInfo && (
-                        <div className='info-box'>
-                            <div className='info-content'>
-                                <button onClick={() => {setShowInfo(false); setShowNodeInfo(false); setShowLinkInfo(false);}} className='info-top'>
-                                    <ArrowExport20Regular />
-                                    <b>Details</b>
-                                </button>
-                                {showNodeInfo && (
-                                    <div>
-                                        <p>Node1</p>
-                                    </div>
-                                )}
-                                {showLinkInfo && (
-                                    <div>
-                                        <p>Link1</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
-                );
-        case 'timeline':
-            return <Navigate to="/timeline" />;
-        default:
-            break;
-    }
-}
-
-// <div id="cy" style={{ width: '100%', height: '93%', marginTop: '40px' }} />
+*/

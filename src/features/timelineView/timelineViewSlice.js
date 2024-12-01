@@ -39,6 +39,24 @@ export const timelineViewSlice = createSlice({
          */
         propDelays: [],
 
+        /**
+         * Whether to focus on the last entry on view initialization
+         */
+        shouldFocusLastEntry: false,
+
+        /** 
+         * Zoom state used across all entries, when `alignTime` is true
+         */
+        alignedZoomState: {scale: 1, translateX: 0},
+
+        /**
+         * Whether to update the zoom state for each entry
+         */
+        shouldUpdateZoom: [],
+        
+        showInfo: false,
+
+        selectedPacket: null,
     },
     reducers: {
 
@@ -57,6 +75,7 @@ export const timelineViewSlice = createSlice({
             state.formSelections.push(formSelections);
             state.entryTitles.push("");
             state.propDelays.push(null);
+            state.shouldUpdateZoom.push(false);
         },
 
         /**
@@ -77,6 +96,7 @@ export const timelineViewSlice = createSlice({
             state.formSelections.splice(action.payload, 1);
             state.entryTitles.splice(action.payload, 1);
             state.propDelays.splice(action.payload, 1);
+            state.shouldUpdateZoom.splice(action.payload, 1);
         },
 
         /**
@@ -94,6 +114,14 @@ export const timelineViewSlice = createSlice({
         setFormSelections: (state, action) => {
             const {data, index} = action.payload;
             state.formSelections[ index ] = data;
+        },
+
+        swapFormSelections: (state, action) => {
+            // action.payload is entry index
+            const index = action.payload;
+            const formSelections = state.formSelections[ index ];
+            const { hostA, portA, hostB, portB, radioASelected } = formSelections;
+            state.formSelections[ index ] = { hostA: hostB, portA: portB, hostB: hostA, portB: portA, radioASelected: !radioASelected };
         },
 
         /**
@@ -128,6 +156,35 @@ export const timelineViewSlice = createSlice({
             const {data, index} = action.payload;
             state.propDelays[ index ] = data;
         },
+
+        /**
+         * Set whether to focus on the last entry on view initialization
+         */
+        setShouldFocusLastEntry: (state, action) => {
+            state.shouldFocusLastEntry = action.payload;
+        },
+
+        /**
+         * Broadcast a zoom update to all entries
+         */
+        broadcastZoomUpdate: (state, action) => {
+            const {zoomState, index} = action.payload;
+            state.alignedZoomState = zoomState;
+            state.shouldUpdateZoom = state.shouldUpdateZoom.map((_, i) => !(i === index));
+        },
+
+        setShouldUpdateZoom: (state, action) => {
+            const {index, shouldUpdate} = action.payload;
+            state.shouldUpdateZoom[ index ] = shouldUpdate;
+        },
+
+        setShowInfo: (state, action) => {
+            state.showInfo = action.payload;
+        },
+
+        setSelectedPacket: (state, action) => {
+            state.selectedPacket = action.payload;
+        },
     },
 });
 
@@ -141,6 +198,12 @@ export const {
     setTimelineData,
     setEntryTitle,
     setPropDelay,
+    swapFormSelections,
+    setShouldFocusLastEntry,
+    broadcastZoomUpdate,
+    setShouldUpdateZoom,
+    setShowInfo,
+    setSelectedPacket,
 } = timelineViewSlice.actions;
 
 export default timelineViewSlice.reducer;

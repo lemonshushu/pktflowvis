@@ -16,7 +16,7 @@ export const graphViewSlice = createSlice({
         },
         setMode: (state, action) => {
             state.mode = action.payload;
-        }
+        },
     },
 });
 

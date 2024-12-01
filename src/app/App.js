@@ -3,8 +3,7 @@ import {
     RouterProvider,
 } from "react-router-dom";
 import FileUpload from '../features/fileUpload/FileUpload';
-import GraphView from '../features/graphView/GraphView';
-import TimelineView from '../features/timelineView/TimelineView';
+import MultiView from '../features/multiView/MultiView';
 import './App.css';
 
 const router = createBrowserRouter([
@@ -13,12 +12,8 @@ const router = createBrowserRouter([
         element: <FileUpload />,
     },
     {
-        path: "/graph",
-        element: <GraphView />,
-    },
-    {
-        path: "/timeline",
-        element: <TimelineView />,
+        path: "/vis",
+        element: <MultiView />,
     },
 ]);
 
