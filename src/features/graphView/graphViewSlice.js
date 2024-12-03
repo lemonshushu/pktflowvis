@@ -4,12 +4,16 @@ export const graphViewSlice = createSlice({
     name: 'graphView',
     initialState: {
         hostGraphData: null,
+        availableIPs: null,
         portGraphData: null,
         mode: 'host',
     },
     reducers: {
         setHostGraphData: (state, action) => {
             state.hostGraphData = action.payload;
+        },
+        setAvailableIPs: (state, action) => {
+            state.availableIPs = action.payload;
         },
         setPortGraphData: (state, action) => {
             state.portGraphData = action.payload;
@@ -20,6 +24,6 @@ export const graphViewSlice = createSlice({
     },
 });
 
-export const { setHostGraphData, setPortGraphData, setNicknameMapping, resetNicknameMapping, setMode } = graphViewSlice.actions;
+export const { setHostGraphData, setAvailableIPs, setPortGraphData, setNicknameMapping, resetNicknameMapping, setMode } = graphViewSlice.actions;
 
 export default graphViewSlice.reducer;
