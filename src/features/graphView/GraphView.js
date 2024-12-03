@@ -17,8 +17,7 @@ import {
     toggleL7Protocol
 } from './components/controlPanelSlice';
 
-import { setHostGraphData, setAvailableIPs, setPortGraphData, setShowInfo } from './graphViewSlice';
-import { ArrowExport20Regular } from '@fluentui/react-icons';
+import { setHostGraphData, setAvailableIPs, setPortGraphData } from './graphViewSlice';
 import './GraphView.css';
 
 export default function GraphView() {
