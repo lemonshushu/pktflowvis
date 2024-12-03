@@ -2,12 +2,13 @@
     position: fixed;
     right: 0px;
     top: 60px;
-    width: 500px;
+    width: 800px;
     height: 670px;
     background: white;
     border-radius: 10px;
     border: 1px solid rgb(190, 190, 190);
     z-index: 2;
+    overflow: auto;
 }
   
 .info-top {

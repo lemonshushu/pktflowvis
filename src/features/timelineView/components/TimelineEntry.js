@@ -584,7 +584,10 @@ export default function TimelineEntry({ entryIndex }) {
             .on("mouseover", function (event, d) {
                 d3.select(this).attr("stroke-width", 5);
                 tooltip.transition().duration(200).style("opacity", 1);
-                tooltip.html(`Protocol: ${d.l7Protocol}`)
+                tooltip.html(`<span>Protocol: ${d.l7Protocol}</span>
+                    <br /><span>Packet size: ${data[d.packetnum]._source.layers.frame["frame.len"]} bytes</span>
+                    <br /><span>TCP seq: ${data[d.packetnum]._source.layers.tcp["tcp.seq"]}</span>
+                    <br /><span>TCP ack: ${data[d.packetnum]._source.layers.tcp["tcp.ack"]}</span>`)
                     .style("left", (event.clientX + 5) + "px")
                     .style("top", (event.clientY - 28) + "px");
             })
