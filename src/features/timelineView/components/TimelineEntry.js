@@ -408,6 +408,7 @@ export default function TimelineEntry({ entryIndex, hidden }) {
      * D3 visualization of the timeline
      */
     useEffect(() => {
+        const d3RenderStart = performance.now();
         if (!d3ShouldRender) return;
         setD3ShouldRender(false);
         const propDelay = propDelays[ entryIndex ];
@@ -748,7 +749,8 @@ export default function TimelineEntry({ entryIndex, hidden }) {
 
 
 
-
+        const d3RenderEnd = performance.now();
+        console.log(`d3Render time for entry ${entryIndex}: ${d3RenderEnd - d3RenderStart} ms`);
 
 
     }, [ metadata, entryIndex, timelineData, dispatch, d3ShouldRender, propDelays, startEpoch, endEpoch, alignTime, shouldUpdateZoom, alignedZoomState.translateX, alignedZoomState.scale ]);

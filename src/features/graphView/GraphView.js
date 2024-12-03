@@ -277,8 +277,11 @@ export default function GraphView() {
 
     useEffect(() => {
         if (filteredPackets) {
+            const initDataStart = performance.now();
             dispatch(setHostGraphData(initHostData()));
             dispatch(setPortGraphData(initPortData()));
+            const initDataEnd = performance.now();
+            console.log(`initData: ${initDataEnd - initDataStart}ms`);
         }
     }, [ filteredPackets, initHostData, initPortData]);
 
@@ -615,6 +618,7 @@ export default function GraphView() {
             };
         };
 
+        const createGraphStart = performance.now();
         if (mode === 'host') {
             const links = hostData.links.map(d => ({ ...d }));
             const nodes = hostData.nodes.map(d => ({ ...d }));
@@ -624,6 +628,8 @@ export default function GraphView() {
             const nodes = portData.nodes.map(d => ({ ...d }));
             createGraph(nodes, links, 'port');
         }
+        const createGraphEnd = performance.now();
+        console.log(`createGraph: ${createGraphEnd - createGraphStart}ms`);
 
     }, [ hostData, portData, mode ]);
     
