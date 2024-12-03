@@ -1,5 +1,5 @@
 import * as d3 from 'd3';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import ControlPanel from './components/ControlPanel';
 
@@ -16,10 +16,9 @@ import {
     toggleL4Protocol,
     toggleL7Protocol
 } from './components/controlPanelSlice';
-import { setHostGraphData, setAvailableIPs, setPortGraphData } from './graphViewSlice';
 
+import { setHostGraphData, setAvailableIPs, setPortGraphData } from './graphViewSlice';
 import './GraphView.css';
-import { availableMemory } from 'process';
 
 export default function GraphView() {
     const packets = useSelector((state) => state.data.packets);
@@ -28,7 +27,6 @@ export default function GraphView() {
     const availableIPs = useSelector((state) => state.graphView.availableIPs);
     const portData = useSelector((state) => state.graphView.portGraphData);
     const nicknameMapping = useSelector((state) => state.controlPanel.nicknameMapping);
-
 
     const mode = useSelector((state) => state.graphView.mode);
     const isSimulationStable = useSelector((state) => state.controlPanel.isSimulationStable);
@@ -48,6 +46,9 @@ export default function GraphView() {
     const svgRef = useRef(null); // SVG 요소에 대한 참조를 저장할 ref
     const zoomRef = useRef(null); // zoom behavior에 대한 참조를 저장할 ref
     const isSimulationStableRef = useRef(isSimulationStable);
+
+    // 우클릭 메뉴 관련
+    const showInfo = useSelector((state) => state.graphView.showInfo);
 
     function updateIsSimulationStable(value) {
         dispatch(setIsSimulationStable(value));
@@ -234,7 +235,7 @@ export default function GraphView() {
                     link.l7_proto.add(l7_proto);
                 }
             }
-        });
+    });
 
         // Comparator function to sort protocols with 'None' at the end
         const protocolComparator = (a, b) => {
@@ -273,13 +274,6 @@ export default function GraphView() {
         //console.log(data);
         return data;
     }, [dispatch, filteredPackets]);
-
-    // useEffect(() => {
-    //     if (packets && !hostData) {
-    //         dispatch(setHostGraphData(initHostData()));
-    //         dispatch(setPortGraphData(initPortData()));
-    //     }
-    // }, [ dispatch, hostData, portData ]);
 
     useEffect(() => {
         if (filteredPackets) {
@@ -429,11 +423,11 @@ export default function GraphView() {
                     const portB = event.srcElement.__data__.dst_port;
                     dispatch(addEntry({ metadata: { hostA, portA, hostB, portB }, formSelections: { hostA, portA, hostB, portB, radioASelected: true } }));
                     dispatch(setShouldFocusLastEntry(true));
-                });
+                })
 
             linkRef.current = link;
             svg.on('mousemove', throttledHandleMouseMove);
-
+            
             // Add nodes
             const node = container.append("g")
                 // Removed unnecessary white strokes
@@ -448,8 +442,8 @@ export default function GraphView() {
                     dispatch(addEntry({ metadata: null, formSelections: { hostA: d.ip_addr, portA: d.port, hostB: "", portB: "", radioASelected: true } })); // Add new entry in TimelineView
                     d3.selectAll(".tooltip").remove();
                     dispatch(setShouldFocusLastEntry(true));
-                });
-
+                })
+            
             nodeRef.current = node;
 
             // Add tooltips
@@ -632,7 +626,7 @@ export default function GraphView() {
         }
 
     }, [ hostData, portData, mode ]);
-    
+
     const getNicknameLabel = useCallback((node, mode) => {
         if (!node) return;
         if (mode === 'host') {
@@ -672,7 +666,6 @@ export default function GraphView() {
             return `${nicknameMapping[ key ] ? `${nicknameMapping[ key ]}<br>` : ''}IP: ${node.ip_addr}<br>Port: ${node.port}<br>Traffic Volume: ${node.traffic_volume}<br>L4 Protocol: ${node.l4_proto.join(", ")}<br>L7 Protocol: ${l7_proto_display}`;
         }
     }, [ nicknameMapping ]);
-
 
     useEffect(() => {
         if (!hostData || !portData) return;
@@ -867,11 +860,72 @@ export default function GraphView() {
         }
     }
 
-
     return (
         <div>
-            <ControlPanel resetAllNodes={resetAllNodes} />
-            <svg ref={graphRef} style={{ width: '100vw', height: '100vh' }} />
+            <div>
+                <ControlPanel resetAllNodes={resetAllNodes} />
+                <svg ref={graphRef} style={{ width: '100vw', height: '100vh' }} />
+            </div>
         </div>
-    );
+        );
 }
+
+// <div id="cy" style={{ width: '100%', height: '93%', marginTop: '40px' }} />
+// <div onClick={handleClickOutside}>
+//   <Top onNavigateToTimeline={onNavigateToTimeline} onNavigateToGraph={onNavigateToGraph} />
+/*
+.on("contextmenu", function (event) {
+                    event.preventDefault(); // 브라우저 기본 우클릭 메뉴 비활성화
+                    setNodeMenuPosition({ x: event.clientX, y: event.clientY });
+                    setNodeMenuVisible(true);
+                });
+
+{nodeMenuVisible && (
+                <div
+                style={{
+                    position: "absolute",
+                    top: nodeMenuPosition.y,
+                    left: nodeMenuPosition.x,
+                    backgroundColor: "white",
+                    border: "1px solid #ccc",
+                    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+                    borderRadius: "4px",
+                    zIndex: 1000,
+                    padding: "10px",
+                }}
+                >
+                <div
+                    style={{
+                    padding: "8px",
+                    cursor: "pointer",
+                    }}
+                    onClick={() => handleNodeMenuClickDetails()}
+                >
+                    Show Details
+                </div>
+                <div
+                    style={{
+                    padding: "8px",
+                    cursor: "pointer",
+                    }}
+                    onClick={() => handleNodeMenuClick("기타")}
+                >
+                    기타
+                </div>
+                </div>
+            )}
+
+// menu event handler
+    const handleNodeMenuClick = (option) => {
+        alert(`${option} 클릭됨!`);
+
+        setNodeMenuVisible(false);
+    };
+    const handleNodeMenuClickDetails = (option) => {
+        setShowInfo(true);
+        setShowNodeInfo(true);
+        setShowLinkInfo(false);
+
+        setNodeMenuVisible(false); // 메뉴 숨기기
+    };
+*/

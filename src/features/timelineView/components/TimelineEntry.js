@@ -14,6 +14,8 @@ import {
     setShouldUpdateZoom,
     setTimelineData,
     swapFormSelections,
+    setShowInfo,
+    setSelectedPacket,
     toggleEntryVisibleState,
 } from '../timelineViewSlice';
 import "./TimelineEntry.css";
@@ -526,9 +528,12 @@ export default function TimelineEntry({ entryIndex, hidden }) {
         });
 
         // Compute send and receive times
+        let tempPacketNum = 0;
         const processedPackets = packets.map(packet => {
             const { time, sourceHost, destHost, l7Protocol } = packet;
             let sendTime, receiveTime;
+            let packetnum = tempPacketNum;
+            tempPacketNum++;
             if (localhost === sourceHost) {
                 // Timestamps are send times
                 sendTime = time;
@@ -544,8 +549,10 @@ export default function TimelineEntry({ entryIndex, hidden }) {
                 sourceHost,
                 destHost,
                 l7Protocol,
+                packetnum,
             };
         });
+        tempPacketNum = -1;
 
         // Define color scale for protocols
         // const protocolSet = new Set();
@@ -601,13 +608,20 @@ export default function TimelineEntry({ entryIndex, hidden }) {
             .on("mouseover", function (event, d) {
                 d3.select(this).attr("stroke-width", 5);
                 tooltip.transition().duration(200).style("opacity", 1);
-                tooltip.html(`Protocol: ${d.l7Protocol}`)
+                tooltip.html(`<span>Protocol: ${d.l7Protocol}</span>
+                    <br /><span>Packet size: ${data[d.packetnum]._source.layers.frame["frame.len"]} bytes</span>
+                    <br /><span>TCP seq: ${data[d.packetnum]._source.layers.tcp["tcp.seq"]}</span>
+                    <br /><span>TCP ack: ${data[d.packetnum]._source.layers.tcp["tcp.ack"]}</span>`)
                     .style("left", (event.clientX + 5) + "px")
                     .style("top", (event.clientY - 28) + "px");
             })
             .on("mouseout", function () {
                 d3.select(this).attr("stroke-width", 3);
                 tooltip.transition().duration(500).style("opacity", 0);
+            })
+            .on("click", (event, d) => {
+                dispatch(setShowInfo(true));
+                dispatch(setSelectedPacket(data[d.packetnum]));
             });
 
 

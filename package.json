@@ -5,10 +5,13 @@
   "dependencies": {
     "@emotion/react": "^11.13.5",
     "@emotion/styled": "^11.13.5",
+    "@fluentui/react-components": "^9.56.2",
+    "@fluentui/react-icons": "^2.0.266",
     "@fortawesome/fontawesome-svg-core": "^6.6.0",
     "@fortawesome/free-solid-svg-icons": "^6.6.0",
     "@fortawesome/react-fontawesome": "^0.2.2",
     "@mui/material": "^6.1.9",
+    "@mui/x-tree-view": "^7.23.0",
     "@reduxjs/toolkit": "^2.3.0",
     "bootstrap": "^5.3.3",
     "d3": "^7.9.0",

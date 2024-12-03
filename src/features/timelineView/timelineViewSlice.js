@@ -53,6 +53,10 @@ export const timelineViewSlice = createSlice({
          * Whether to update the zoom state for each entry
          */
         shouldUpdateZoom: [],
+        
+        showInfo: false,
+
+        selectedPacket: null,
 
         /**
          * Whether each entry is visible
@@ -182,6 +186,14 @@ export const timelineViewSlice = createSlice({
             state.shouldUpdateZoom[ index ] = shouldUpdate;
         },
 
+        setShowInfo: (state, action) => {
+            state.showInfo = action.payload;
+        },
+
+        setSelectedPacket: (state, action) => {
+            state.selectedPacket = action.payload;
+        },
+
         toggleEntryVisibleState: (state, action) => {
             const index = action.payload;
             state.entryVisibleStates[ index ] = !state.entryVisibleStates[ index ];
@@ -203,6 +215,8 @@ export const {
     setShouldFocusLastEntry,
     broadcastZoomUpdate,
     setShouldUpdateZoom,
+    setShowInfo,
+    setSelectedPacket,
     toggleEntryVisibleState,
 } = timelineViewSlice.actions;
 
