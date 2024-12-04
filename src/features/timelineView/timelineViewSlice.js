@@ -62,7 +62,6 @@ export const timelineViewSlice = createSlice({
          * Whether each entry is visible
          */
         entryVisibleStates: [],
-
     },
     reducers: {
 

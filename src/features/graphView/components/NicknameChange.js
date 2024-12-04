@@ -5,7 +5,7 @@ import { Button, Form } from 'react-bootstrap';
 import "./ControlPanel.css"
 
 export default function NicknameChange() {
-    const hostData = useSelector((state) => state.graphView.hostGraphData);
+    //const hostData = useSelector((state) => state.graphView.hostGraphData);
     const availableIPs = useSelector((state) => state.graphView.availableIPs);
     const portData = useSelector((state) => state.graphView.portGraphData);
     const mode = useSelector((state) => state.graphView.mode);

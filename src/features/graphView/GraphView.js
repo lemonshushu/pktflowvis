@@ -16,12 +16,11 @@ import {
     toggleL4Protocol,
     toggleL7Protocol
 } from './components/controlPanelSlice';
-
 import { setHostGraphData, setAvailableIPs, setPortGraphData } from './graphViewSlice';
 import './GraphView.css';
 
+
 export default function GraphView() {
-    const packets = useSelector((state) => state.data.packets);
     const graphRef = useRef(null);
     const hostData = useSelector((state) => state.graphView.hostGraphData);
     const availableIPs = useSelector((state) => state.graphView.availableIPs);
@@ -46,9 +45,6 @@ export default function GraphView() {
     const svgRef = useRef(null); // SVG 요소에 대한 참조를 저장할 ref
     const zoomRef = useRef(null); // zoom behavior에 대한 참조를 저장할 ref
     const isSimulationStableRef = useRef(isSimulationStable);
-
-    // 우클릭 메뉴 관련
-    const showInfo = useSelector((state) => state.graphView.showInfo);
 
     function updateIsSimulationStable(value) {
         dispatch(setIsSimulationStable(value));
