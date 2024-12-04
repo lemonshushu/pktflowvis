@@ -64,9 +64,6 @@ const renderTree = (nodes, path = '', level = 0) => {
             const labelStyle = {
                 backgroundColor: isLayer ? '#e0e0e0' : 'transparent', // Gray background for layers
                 padding: '4px',
-                whiteSpace: 'normal', // 텍스트 줄바꿈 허용
-                wordBreak: 'break-word', // 단어가 길 경우 줄바꿈
-                maxWidth: '100%'
             };
 
             // Create the label component
@@ -89,10 +86,7 @@ const renderTree = (nodes, path = '', level = 0) => {
                     key={leafItemId}
                     itemId={leafItemId}
                     label={
-                        <Typography align="left" sx={{ padding: '4px',
-                            whiteSpace: 'normal', // 텍스트 줄바꿈 허용
-                            wordBreak: 'break-word', // 단어가 길 경우 줄바꿈
-                            maxWidth: '100%' }}>
+                        <Typography align="left" sx={{ padding: '4px' }}>
                         {`${key}: ${value}`}
                         </Typography>
                     }

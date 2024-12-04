@@ -6,7 +6,6 @@ import "./ControlPanel.css"
 
 export default function NicknameChange() {
     const hostData = useSelector((state) => state.graphView.hostGraphData);
-    const availableIPs = useSelector((state) => state.graphView.availableIPs);
     const portData = useSelector((state) => state.graphView.portGraphData);
     const mode = useSelector((state) => state.graphView.mode);
 
@@ -110,8 +109,8 @@ export default function NicknameChange() {
                             value={selectedIP}
                         >
                             <option></option>
-                            {availableIPs?.map((opt, index) => (
-                                <option key={index} value={opt}>{opt}</option>
+                            {hostData?.nodes.map((opt, index) => (
+                                <option key={index} value={opt.ip_addr}>{opt.ip_addr}</option>
                             ))}
                         </Form.Select>
                     </div>
