@@ -57,6 +57,11 @@ export const timelineViewSlice = createSlice({
         showInfo: false,
 
         selectedPacket: null,
+
+        /**
+         * Whether each entry is visible
+         */
+        entryVisibleStates: [],
     },
     reducers: {
 
@@ -76,6 +81,7 @@ export const timelineViewSlice = createSlice({
             state.entryTitles.push("");
             state.propDelays.push(null);
             state.shouldUpdateZoom.push(false);
+            state.entryVisibleStates.push(true);
         },
 
         /**
@@ -97,6 +103,7 @@ export const timelineViewSlice = createSlice({
             state.entryTitles.splice(action.payload, 1);
             state.propDelays.splice(action.payload, 1);
             state.shouldUpdateZoom.splice(action.payload, 1);
+            state.entryVisibleStates.splice(action.payload, 1);
         },
 
         /**
@@ -185,6 +192,11 @@ export const timelineViewSlice = createSlice({
         setSelectedPacket: (state, action) => {
             state.selectedPacket = action.payload;
         },
+
+        toggleEntryVisibleState: (state, action) => {
+            const index = action.payload;
+            state.entryVisibleStates[ index ] = !state.entryVisibleStates[ index ];
+        }
     },
 });
 
@@ -204,6 +216,7 @@ export const {
     setShouldUpdateZoom,
     setShowInfo,
     setSelectedPacket,
+    toggleEntryVisibleState,
 } = timelineViewSlice.actions;
 
 export default timelineViewSlice.reducer;
