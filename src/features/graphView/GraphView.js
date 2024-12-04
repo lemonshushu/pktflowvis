@@ -16,17 +16,15 @@ import {
     toggleL4Protocol,
     toggleL7Protocol
 } from './components/controlPanelSlice';
-import { setHostGraphData, setPortGraphData, setShowInfo } from './graphViewSlice';
 
+import { setHostGraphData, setAvailableIPs, setPortGraphData } from './graphViewSlice';
 import './GraphView.css';
-//import { Top } from '../Menubar';
-//import { setCurrentView } from '../data/dataSlice';
-import { ArrowExport20Regular } from '@fluentui/react-icons';
 
 export default function GraphView() {
     const packets = useSelector((state) => state.data.packets);
     const graphRef = useRef(null);
     const hostData = useSelector((state) => state.graphView.hostGraphData);
+    const availableIPs = useSelector((state) => state.graphView.availableIPs);
     const portData = useSelector((state) => state.graphView.portGraphData);
     const nicknameMapping = useSelector((state) => state.controlPanel.nicknameMapping);
 
@@ -89,6 +87,10 @@ export default function GraphView() {
                 data.links.find(link => link.src_ip === src_ip && link.dst_ip === dst_ip).traffic_volume += frame_size;
             }
         });
+
+        if (!availableIPs) {
+            dispatch(setAvailableIPs(data.nodes.map((opt, index) => opt.ip_addr)));
+        }
 
         return data;
     }, [ filteredPackets ]);
@@ -523,7 +525,7 @@ export default function GraphView() {
                 });
 
                 // Print ipAddrsWithMultipleNodes
-                console.log(ipAddrsWithMultipleNodes);
+                // console.log(ipAddrsWithMultipleNodes);
                 container.append("g").attr("id", "ipAddrLabels")
                     .selectAll("text")
                     .data(ipAddrsWithMultipleNodes)
@@ -705,7 +707,7 @@ export default function GraphView() {
     const hoveredLines = new Set();
 
     const handleMouseMove = (event) => {
-        const [ mouseX, mouseY ] = d3.pointer(event);
+        // const [ mouseX, mouseY ] = d3.pointer(event);
 
         const elements = document.elementsFromPoint(event.clientX, event.clientY);
 

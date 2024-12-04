@@ -11,21 +11,25 @@ export default function TimelineView() {
     const timelineData = useSelector((state) => state.timelineView.timelineData);
     const shouldFocusLastEntry = useSelector((state) => state.timelineView.shouldFocusLastEntry);
     const [ timelineVisible, setTimelineVisible ] = useState(true);
+    const entryVisibleStates = useSelector((state) => state.timelineView.entryVisibleStates);
 
     useEffect(() => {
 
         if (shouldFocusLastEntry) {
-            dispatch(setShouldFocusLastEntry(false));
-            const lastEntry = document.getElementById(`entry-${timelineData.length - 1}`);
-            lastEntry.scrollIntoView({ behavior: "smooth", block: "end", inline: "nearest" });
+            if (!timelineVisible) setTimelineVisible(true);
+            else {
+                dispatch(setShouldFocusLastEntry(false));
+                const lastEntry = document.getElementById(`entry-${timelineData.length - 1}`);
+                lastEntry.scrollIntoView({ behavior: "smooth", block: "end", inline: "nearest" });
 
-            // Flash the entry (shadow)
-            lastEntry.style.boxShadow = "0 0 10px 5px lightblue";
-            setTimeout(() => {
-                lastEntry.style.boxShadow = "none";
-            }, 1000);
+                // Flash the entry (shadow)
+                lastEntry.style.boxShadow = "0 0 10px 5px lightblue";
+                setTimeout(() => {
+                    lastEntry.style.boxShadow = "none";
+                }, 1000);
+            }
         }
-    }, [ dispatch, shouldFocusLastEntry, timelineData.length ]);
+    }, [ dispatch, shouldFocusLastEntry, timelineData.length, timelineVisible ]);
 
 
 
@@ -48,7 +52,7 @@ export default function TimelineView() {
             {timelineVisible ? (<Container>
                 {timelineData.map((entry, index) => {
                     return (
-                        <TimelineEntry entryIndex={index} key={index} />
+                        <TimelineEntry entryIndex={index} key={index} hidden={!entryVisibleStates[index]} />
                     );
                 })}
             </Container>) : null}
