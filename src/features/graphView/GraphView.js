@@ -521,7 +521,7 @@ export default function GraphView() {
                 });
 
                 // Print ipAddrsWithMultipleNodes
-                //console.log(ipAddrsWithMultipleNodes);
+                // console.log(ipAddrsWithMultipleNodes);
                 container.append("g").attr("id", "ipAddrLabels")
                     .selectAll("text")
                     .data(ipAddrsWithMultipleNodes)
@@ -703,7 +703,7 @@ export default function GraphView() {
     const hoveredLines = new Set();
 
     const handleMouseMove = (event) => {
-        //const [ mouseX, mouseY ] = d3.pointer(event);
+        // const [ mouseX, mouseY ] = d3.pointer(event);
 
         const elements = document.elementsFromPoint(event.clientX, event.clientY);
 
