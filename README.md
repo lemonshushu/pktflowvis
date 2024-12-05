@@ -1,70 +1,41 @@
-# Getting Started with Create React App
+# PktFlowVis: Visual Analytics for Network Packet Capture Files
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+## Live Demo
+[![Netlify Status](https://api.netlify.com/api/v1/badges/e59ce2f7-877e-48dc-8bb0-36edab75cbdc/deploy-status)](https://app.netlify.com/sites/pktflowvis/deploys)
 
-## Available Scripts
+A live demo is available at <https://pktflowvis.netlify.app>.
 
-In the project directory, you can run:
+## How to Use
 
-### `yarn start`
+PktFlowVis takes a JSON file as an input. This JSON file should be obtained by exporting a packet capture file in Wireshark to JSON format, by "File -> Export Packet Dissections..." option in the menu.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+PktFlowVis consists of two views; a graph view and a timeline view.
+The graph view shows network traffic between multiple hosts as a graph, while the timeline view shows the packet flow between two host:ports as a timeline.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Run & Build
 
-### `yarn test`
+### Prerequisites
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Node.js & `yarn` should be installed in your machine.
 
-### `yarn build`
+### Instruction
+First, clone the directory to your local machine.
+`cd` into the directory, then
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```bash
+$ yarn
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+to install dependencies for the project.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+To run the project locally for development, 
+```bash
+$ yarn start
+```
+Then navigate to `http://localhost:3000`.
+Note that since our project has many dependent libraries (mostly redundant GUI libraries; we plan to merge them in the future), it may take a while for the app to actually start after running the command.
 
-### `yarn eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `yarn build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+To build and run the project:
+```bash
+$ yarn run build
+```
