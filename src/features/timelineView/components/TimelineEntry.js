@@ -10,7 +10,6 @@ import {
     setEntryTitle,
     setFormSelections,
     setMetadata,
-    setPropDelay,
     setShouldUpdateZoom,
     setTimelineData,
     swapFormSelections,
@@ -61,7 +60,6 @@ export default function TimelineEntry({ entryIndex, hidden }) {
     const [ previousMetadata, setPreviousMetadata ] = useState(null);
     const [ formShouldReset, setFormShouldReset ] = useState(false);
     const [ timelineDataShouldUpdate, setTimelineDataShouldUpdate ] = useState(false);
-    const [ propDelayShouldUpdate, setPropDelayShouldUpdate ] = useState(false);
     const [ d3ShouldRender, setD3ShouldRender ] = useState(true);
     const [ enableHostBForm, setEnableHostBForm ] = useState(false);
     const [ hostBOptions, setHostBOptions ] = useState({});
@@ -171,7 +169,7 @@ export default function TimelineEntry({ entryIndex, hidden }) {
                 !formOpts.find(opt => opt.ip_addr === hostB).ports.includes(portB))) {
                 dispatch(toggleEntryVisibleState(entryIndex)); // Hide the entry
             }
-            if (!entryVisibleState && 
+            if (!entryVisibleState &&
                 formOpts.find(opt => opt.ip_addr === hostA) &&
                 formOpts.find(opt => opt.ip_addr === hostB) &&
                 formOpts.find(opt => opt.ip_addr === hostA).ports.includes(portA) &&
@@ -180,7 +178,7 @@ export default function TimelineEntry({ entryIndex, hidden }) {
                 dispatch(setFormSelections({ data: { hostA, portA, hostB, portB, radioASelected: metadata[ entryIndex ].localhost === "A" }, index: entryIndex }));
             }
         }
-    }, [dispatch, entryIndex, entryVisibleState, formOpts, metadata]);
+    }, [ dispatch, entryIndex, entryVisibleState, formOpts, metadata ]);
 
     /**
      * Filter out packets based on the selected hosts and ports, sort them by time, and set the timeline data for D3 visualization
@@ -227,194 +225,19 @@ export default function TimelineEntry({ entryIndex, hidden }) {
             data = data.sort((a, b) => parseFloat(a._source.layers.frame[ "frame.time_epoch" ]) - parseFloat(b._source.layers.frame[ "frame.time_epoch" ]));
 
             dispatch(setTimelineData({ data, index: entryIndex }));
-            setPropDelayShouldUpdate(true);
+            setD3ShouldRender(true);
         }
 
     }, [ metadata, packets, dispatch, entryIndex, timelineDataShouldUpdate, previousMetadata, formShouldReset ]);
 
-
     /**
-    * Calculate average propagation delay between packets and set it in `metadata.propDelay`
-    */
-    useEffect(() => {
-        // Calculate propagation delay using RTT between TX and RX packets
-        if (propDelayShouldUpdate) {
-            const data = timelineData[ entryIndex ];
-            const delays = [];
-
-            // Determine local and remote IP addresses and ports
-            const isLocalHostA = metadata[ entryIndex ].localhost === "A";
-            const localIP = isLocalHostA ? metadata[ entryIndex ].hostA : metadata[ entryIndex ].hostB;
-            const localPort = isLocalHostA ? metadata[ entryIndex ].portA : metadata[ entryIndex ].portB;
-            const remoteIP = isLocalHostA ? metadata[ entryIndex ].hostB : metadata[ entryIndex ].hostA;
-            const remotePort = isLocalHostA ? metadata[ entryIndex ].portB : metadata[ entryIndex ].portA;
-            const isTCP = data[ 0 ]._source.layers.tcp;
-
-            // Helper function to extract packet info
-            function getPacketInfo(packet) {
-                const srcIP = packet._source.layers.ip[ "ip.src" ];
-                const dstIP = packet._source.layers.ip[ "ip.dst" ];
-                let srcPort, dstPort;
-
-                if (packet._source.layers.tcp) {
-                    srcPort = packet._source.layers.tcp[ "tcp.srcport" ];
-                    dstPort = packet._source.layers.tcp[ "tcp.dstport" ];
-                } else if (packet._source.layers.udp) {
-                    srcPort = packet._source.layers.udp[ "udp.srcport" ];
-                    dstPort = packet._source.layers.udp[ "udp.dstport" ];
-                } else {
-                    // Not TCP or UDP, cannot get ports
-                    srcPort = null;
-                    dstPort = null;
-                }
-
-                return { srcIP, dstIP, srcPort, dstPort };
-            }
-
-            if (isTCP) {
-                // Use TCP sequence numbers to calculate RTT
-                for (let i = 0; i < data.length - 1; i++) {
-                    const currentPacket = data[ i ];
-                    const currentTime = parseFloat(currentPacket._source.layers.frame[ "frame.time_epoch" ]);
-                    const currentPacketInfo = getPacketInfo(currentPacket);
-
-                    // Determine if current packet is TX (from local IP and port to remote IP and port)
-                    const isCurrentTX = currentPacketInfo.srcIP === localIP &&
-                        currentPacketInfo.dstIP === remoteIP &&
-                        currentPacketInfo.srcPort === localPort &&
-                        currentPacketInfo.dstPort === remotePort;
-
-                    if (isCurrentTX) {
-                        const tcpLayer = currentPacket._source.layers.tcp;
-                        const expectedAckNum = tcpLayer[ "tcp.nxtseq" ] + 1;
-
-                        // Search for corresponding ACK packet
-                        let ackPacket;
-                        let ackTime;
-                        let j = i + 1;
-                        while (j < data.length) {
-                            ackPacket = data[ j ];
-                            ackTime = parseFloat(ackPacket._source.layers.frame[ "frame.time_epoch" ]);
-                            const ackPacketInfo = getPacketInfo(ackPacket);
-
-                            // Check if ackPacket is RX (from remote IP and port to local IP and port)
-                            const isAckPacketRX = ackPacketInfo.srcIP === remoteIP &&
-                                ackPacketInfo.dstIP === localIP &&
-                                ackPacketInfo.srcPort === remotePort &&
-                                ackPacketInfo.dstPort === localPort;
-
-                            if (isAckPacketRX) {
-                                const ackTcpLayer = ackPacket._source.layers.tcp;
-                                const ackNum = parseInt(ackTcpLayer[ "tcp.ack" ]);
-
-                                if (ackNum >= expectedAckNum) {
-                                    // Found the ACK packet
-                                    const delta = ackTime - currentTime;
-                                    if (delta > 0) {
-                                        delays.push(delta);
-                                    }
-                                    i = j; // Update i to skip processed packets
-                                    break; // Exit loop once ACK packet is found
-                                }
-                            }
-                            j++;
-                        }
-                    }
-                }
-
-                // If no valid delays are found, set a default propagation delay
-                let propDelay;
-                if (delays.length > 0) {
-                    // Take the average of the delays and divide by 2
-                    const sum = delays.reduce((acc, curr) => acc + curr, 0);
-                    propDelay = sum / delays.length / 2;
-                } else {
-                    propDelay = 0.001; // Default to 1 millisecond if no delays are found
-                }
-
-                dispatch(setPropDelay({ data: propDelay, index: entryIndex }));
-
-
-            } else {
-                for (let i = 0; i < data.length - 1; i++) {
-                    const currentPacket = data[ i ];
-                    const currentTime = parseFloat(currentPacket._source.layers.frame[ "frame.time_epoch" ]);
-                    const currentPacketInfo = getPacketInfo(currentPacket);
-
-                    // Determine if current packet is TX (from local IP and port to remote IP and port)
-                    const isCurrentTX = currentPacketInfo.srcIP === localIP &&
-                        currentPacketInfo.dstIP === remoteIP &&
-                        currentPacketInfo.srcPort === localPort &&
-                        currentPacketInfo.dstPort === remotePort;
-
-                    if (isCurrentTX) {
-                        // Skip all consecutive TX packets
-                        let nextPacket;
-                        let nextTime;
-                        let isNextRX = false;
-
-                        let j = i + 1;
-                        while (j < data.length) {
-                            nextPacket = data[ j ];
-                            nextTime = parseFloat(nextPacket._source.layers.frame[ "frame.time_epoch" ]);
-                            const nextPacketInfo = getPacketInfo(nextPacket);
-
-                            // Check if next packet is RX
-                            isNextRX = nextPacketInfo.srcIP === remoteIP &&
-                                nextPacketInfo.dstIP === localIP &&
-                                nextPacketInfo.srcPort === remotePort &&
-                                nextPacketInfo.dstPort === localPort;
-
-                            if (isNextRX) {
-                                break; // Exit loop once RX packet is found
-                            }
-                            j++;
-                        }
-
-                        if (isNextRX) {
-                            const delta = nextTime - currentTime;
-                            if (delta > 0) {
-                                delays.push(delta);
-                            }
-                            i = j + 1; // Update i to skip processed packets
-                        }
-                    }
-                }
-
-
-                // If no valid delays are found, set a default propagation delay
-                let medDelay;
-                if (delays.length > 0) {
-
-                    // Take the median of the delays and divide by 2
-                    delays.sort((a, b) => a - b);
-                    medDelay = delays[ Math.floor(delays.length / 2) ] / 2;
-                } else {
-                    medDelay = 0.001; // Default to 1 millisecond if no delays are found
-                }
-
-                dispatch(setPropDelay({ data: medDelay, index: entryIndex }));
-            }
-
-            setPropDelayShouldUpdate(false);
-            setD3ShouldRender(true);
-        }
-    }, [ timelineData, entryIndex, dispatch, metadata, propDelayShouldUpdate ]);
-
-
-
-
-
-
-    /**
-     * D3 visualization of the timeline
-     */
+         * D3 visualization of the timeline
+         */
     useEffect(() => {
         if (!d3ShouldRender) return;
         setD3ShouldRender(false);
-        const propDelay = propDelays[ entryIndex ];
 
-        // Render timeline from `timelineData`
+        // We no longer have a single propDelay. We'll compute RTT per packet if possible.
         const data = timelineData[ entryIndex ];
         if (data.length === 0) {
             return;
@@ -422,13 +245,6 @@ export default function TimelineEntry({ entryIndex, hidden }) {
 
         const svg = d3.select(svgRef.current);
         svg.selectAll("*").remove();
-
-        // The timeline has two horizontal lines, one for each host. The x-axis represents time.
-        // The timestamp in the packets is the time of the host selected as localhost in `metadata`
-        // Packets are displayed as arrows pointing from the source host to the destination host.
-        // The slope of the arrow represents the propagation delay between the two hosts.
-        // ADD YOUR CODE HERE
-        // After svg.selectAll("*").remove();
 
         const margin = { top: 20, right: 40, bottom: 50, left: 140 };
         const timelineWidth = svgRef.current.clientWidth - margin.left - margin.right;
@@ -450,9 +266,6 @@ export default function TimelineEntry({ entryIndex, hidden }) {
 
         const timeMin = 0;
         const timeMax = endEpoch - startEpoch;
-
-        // Add padding to time domain
-        // const timePadding = (timeMax - timeMin) * 0.05; // 5% padding on each side
         const timePadding = 0;
         const timeDomainStart = timeMin - timePadding;
         const timeDomainEnd = timeMax + timePadding;
@@ -462,8 +275,6 @@ export default function TimelineEntry({ entryIndex, hidden }) {
             .range([ 0, timelineWidth ]);
 
         const xAxis = d3.axisBottom(xScale);
-        // .ticks(5)
-        // .tickFormat(d3.timeFormat("%H:%M:%S.%L")); // Format to show hours, minutes, seconds, milliseconds
 
         const yPositions = {
             "A": hostAY,
@@ -487,14 +298,8 @@ export default function TimelineEntry({ entryIndex, hidden }) {
             .attr("y2", hostBY)
             .attr("stroke", "black");
 
-
-        // Map to number between 0 and 1
-        const protocolColor = d3.scaleLinear()
-            .domain([ 0, 1 ])
-            .range([ 0, 1 ]);
-
-        // Process packets
-        const packets = data.map(packet => {
+        // Convert data into a simpler format
+        const packetsArray = data.map((packet, idx) => {
             const time = parseFloat(packet._source.layers.frame[ "frame.time_epoch" ]) - startEpoch;
             const srcIP = packet._source.layers.ip[ "ip.src" ];
             const dstIP = packet._source.layers.ip[ "ip.dst" ];
@@ -508,63 +313,228 @@ export default function TimelineEntry({ entryIndex, hidden }) {
                 sourceHost = "B";
                 destHost = "A";
             } else {
-                // Should not happen
-                console.warn("Packet does not match hosts", packet);
+                // Packet doesn't match the hosts/ports expected, ignore or warn
+                console.warn("Unexpected packet", packet);
             }
 
-            // Extract all protocol layers excluding frame and ip
+            // Extract layer 7 protocols
             const layers = Object.keys(packet._source.layers);
             const l7Protocols = layers.filter(layer => ![ "frame", "ip", "eth", "data" ].includes(layer));
-
-            // Join protocols into a single string
             const l7Protocol = l7Protocols.length > 0 ? l7Protocols.join(", ") : "Unknown";
 
             return {
+                index: idx,
                 time,
                 sourceHost,
                 destHost,
                 l7Protocol,
+                packet
             };
-        });
+        }).filter(d => d !== undefined);
 
-        // Compute send and receive times
-        let tempPacketNum = 0;
-        const processedPackets = packets.map(packet => {
-            const { time, sourceHost, destHost, l7Protocol } = packet;
-            let sendTime, receiveTime;
-            let packetnum = tempPacketNum;
-            tempPacketNum++;
-            if (localhost === sourceHost) {
-                // Timestamps are send times
-                sendTime = time;
-                receiveTime = sendTime + propDelay;
-            } else {
-                // Timestamps are receive times
-                receiveTime = time;
-                sendTime = receiveTime - propDelay;
+        const RTT_THRESHOLD = 0.02;
+
+
+        // To compute RTT for each packet, we attempt to pair requests and responses.
+        // For TCP: match a packet going one way with the next ACK (opposite direction) that acknowledges its sequence.
+        // For UDP or unmatched packets: fallback to no slope (sendTime = receiveTime).
+
+        function getPacketInfo(pkt) {
+            const p = pkt._source.layers;
+            const srcIP = p.ip["ip.src"];
+            const dstIP = p.ip["ip.dst"];
+            let srcPort, dstPort, isTCP = false, isUDP = false;
+            if (p.tcp) {
+                srcPort = p.tcp["tcp.srcport"];
+                dstPort = p.tcp["tcp.dstport"];
+                isTCP = true;
+            } else if (p.udp) {
+                srcPort = p.udp["udp.srcport"];
+                dstPort = p.udp["udp.dstport"];
+                isUDP = true;
             }
+            return { srcIP, dstIP, srcPort, dstPort, isTCP, isUDP };
+        }
+        
+        function findMatchingAck(currentIdx) {
+            const currentPacket = data[currentIdx];
+            const cInfo = getPacketInfo(currentPacket);
+            if (!cInfo.isTCP) return null; // Only for TCP
+        
+            const seq = parseInt(currentPacket._source.layers.tcp["tcp.seq"], 10);
+            const nxtseq = parseInt(currentPacket._source.layers.tcp["tcp.nxtseq"], 10) || (seq + 1);
+            const sendTime = parseFloat(currentPacket._source.layers.frame["frame.time_epoch"]) - startEpoch;
+        
+            for (let j = currentIdx + 1; j < data.length; j++) {
+                const ackPacket = data[j];
+                const info = getPacketInfo(ackPacket);
+        
+                if (info.isTCP &&
+                    info.srcIP === cInfo.dstIP && info.dstIP === cInfo.srcIP &&
+                    info.srcPort === cInfo.dstPort && info.dstPort === cInfo.srcPort) {
+                    const ackNum = parseInt(ackPacket._source.layers.tcp["tcp.ack"], 10);
+                    if (ackNum >= nxtseq) {
+                        const ackTime = parseFloat(ackPacket._source.layers.frame["frame.time_epoch"]) - startEpoch;
+                        const rtt = ackTime - sendTime;
+                        // Check RTT threshold
+                        if (rtt <= RTT_THRESHOLD) {
+                            return { matchIndex: j, rtt };
+                        } else {
+                            // RTT too large, consider no match
+                            return null;
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+        
+        function findMatchingUdpResponse(currentIdx, localIsSource) {
+            const currentPacket = data[currentIdx];
+            const cInfo = getPacketInfo(currentPacket);
+            if (!cInfo.isUDP) return null;
+        
+            const currentTime = parseFloat(currentPacket._source.layers.frame["frame.time_epoch"]) - startEpoch;
+        
+            if (localIsSource) {
+                // local->remote UDP packet, look forward
+                for (let j = currentIdx + 1; j < data.length; j++) {
+                    const candidate = data[j];
+                    const info = getPacketInfo(candidate);
+                    if (info.isUDP &&
+                        info.srcIP === cInfo.dstIP && info.dstIP === cInfo.srcIP &&
+                        info.srcPort === cInfo.dstPort && info.dstPort === cInfo.srcPort) {
+                        const respTime = parseFloat(candidate._source.layers.frame["frame.time_epoch"]) - startEpoch;
+                        const rtt = respTime - currentTime;
+                        if (rtt <= RTT_THRESHOLD) {
+                            return { matchIndex: j, rtt };
+                        } else {
+                            // RTT too large, consider no match
+                            return null;
+                        }
+                    }
+                }
+            } else {
+                // remote->local UDP packet, look backward
+                for (let k = currentIdx - 1; k >= 0; k--) {
+                    const candidate = data[k];
+                    const info = getPacketInfo(candidate);
+                    if (info.isUDP &&
+                        info.srcIP === cInfo.dstIP && info.dstIP === cInfo.srcIP &&
+                        info.srcPort === cInfo.dstPort && info.dstPort === cInfo.srcPort) {
+                        const reqTime = parseFloat(candidate._source.layers.frame["frame.time_epoch"]) - startEpoch;
+                        const rtt = currentTime - reqTime;
+                        if (rtt <= RTT_THRESHOLD) {
+                            return { matchIndex: k, rtt };
+                        } else {
+                            // RTT too large, consider no match
+                            return null;
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+        
+        // In your packet processing logic:
+        const processedPackets = packetsArray.map((p) => {
+            const pkt = p.packet;
+            const info = getPacketInfo(pkt);
+            let sendTime, receiveTime;
+            const localIsSource = (localhost === p.sourceHost);
+            const currentTime = p.time;
+        
+            if (info.isTCP) {
+                // TCP RTT calculation
+                if (localIsSource) {
+                    // local->remote
+                    const match = findMatchingAck(p.index);
+                    if (match && match.rtt > 0) {
+                        sendTime = currentTime;
+                        receiveTime = currentTime + (match.rtt / 2);
+                    } else {
+                        // no match or RTT > threshold
+                        sendTime = currentTime;
+                        receiveTime = currentTime; 
+                    }
+                } else {
+                    // remote->local
+                    // Find preceding local->remote packet and calculate RTT if possible
+                    let rttFound = false;
+                    for (let k = p.index - 1; k >= 0; k--) {
+                        const candidate = data[k];
+                        const cInfo = getPacketInfo(candidate);
+                        if (cInfo.isTCP &&
+                            cInfo.srcIP === (localhost === "A" ? ipA : ipB) &&
+                            cInfo.dstIP === (localhost === "A" ? ipB : ipA) &&
+                            cInfo.srcPort === (localhost === "A" ? portA : portB) &&
+                            cInfo.dstPort === (localhost === "A" ? portB : portA)) {
+                            const reqTime = parseFloat(candidate._source.layers.frame["frame.time_epoch"]) - startEpoch;
+                            const rtt = currentTime - reqTime;
+                            if (rtt > 0 && rtt <= RTT_THRESHOLD) {
+                                receiveTime = currentTime;
+                                sendTime = receiveTime - rtt / 2;
+                                rttFound = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!rttFound) {
+                        sendTime = currentTime;
+                        receiveTime = currentTime;
+                    }
+                }
+        
+            } else if (info.isUDP) {
+                // UDP heuristic
+                if (localIsSource) {
+                    // local->remote UDP packet
+                    const match = findMatchingUdpResponse(p.index, true);
+                    if (match && match.rtt > 0) {
+                        sendTime = currentTime;
+                        receiveTime = currentTime + match.rtt / 2;
+                    } else {
+                        sendTime = currentTime;
+                        receiveTime = currentTime;
+                    }
+                } else {
+                    // remote->local UDP packet
+                    const match = findMatchingUdpResponse(p.index, false);
+                    if (match && match.rtt > 0) {
+                        receiveTime = currentTime;
+                        sendTime = currentTime - match.rtt / 2;
+                    } else {
+                        sendTime = currentTime;
+                        receiveTime = currentTime;
+                    }
+                }
+        
+            } else {
+                // Neither TCP nor UDP
+                sendTime = currentTime;
+                receiveTime = currentTime;
+            }
+        
             return {
                 sendTime,
                 receiveTime,
-                sourceHost,
-                destHost,
-                l7Protocol,
-                packetnum,
+                sourceHost: p.sourceHost,
+                destHost: p.destHost,
+                l7Protocol: p.l7Protocol,
+                packetnum: p.index
             };
         });
-        tempPacketNum = -1;
 
-        // Define color scale for protocols
-        // const protocolSet = new Set();
-        // data.forEach(packet => {
-        //     const layers = Object.keys(packet._source.layers);
-        //     layers.forEach(layer => protocolSet.add(layer));
-        // });
-        const l7ProtocolSet = new Set();
-        processedPackets.forEach(packet => l7ProtocolSet.add(packet.l7Protocol));
+        // Print processedPacket data
+        console.log("Processed Packets", processedPackets);
 
+        // Define color and arrowheads
+        const protocolColor = d3.scaleLinear()
+            .domain([ 0, 1 ])
+            .range([ 0, 1 ]);
+
+        const l7ProtocolSet = new Set(processedPackets.map(d => d.l7Protocol));
         l7ProtocolSet.forEach(protocol => {
-            // Define arrowhead marker
             svg.append("defs").append("marker")
                 .attr("id", `arrowhead-${entryIndex}-${protocol.replace(/[ ,.]/g, "")}`)
                 .attr("viewBox", "0 -5 10 10")
@@ -578,7 +548,7 @@ export default function TimelineEntry({ entryIndex, hidden }) {
                 .attr("fill", d3.interpolateRainbow(protocolColor(stringToNumber(protocol))));
         });
 
-        // Create tooltip div (hidden by default)
+        // Create tooltip
         const tooltip = d3.select(svgRef.current.parentNode)
             .append("div")
             .attr("class", "tooltip")
@@ -590,7 +560,7 @@ export default function TimelineEntry({ entryIndex, hidden }) {
             .style("pointer-events", "none")
             .style("opacity", 0);
 
-        // Draw packets as arrows
+        // Draw packets
         const packetLinesGroup = svgGroup.append("g").attr("class", "packet-lines");
 
         const packetLines = packetLinesGroup.selectAll(".packet")
@@ -603,22 +573,22 @@ export default function TimelineEntry({ entryIndex, hidden }) {
             .attr("x2", d => xScale(d.receiveTime))
             .attr("y2", d => yPositions[ d.destHost ])
             .attr("stroke", d => d3.interpolateRainbow(protocolColor(stringToNumber(d.l7Protocol))))
-            .attr("stroke-width", 3) // Increased thickness
-            .attr("marker-end", d => `url(#${`arrowhead-${entryIndex}-${d.l7Protocol.replace(/[ ,.]/g, "")}`})`)
+            .attr("stroke-width", 3)
+            .attr("marker-end", d => `url(#arrowhead-${entryIndex}-${d.l7Protocol.replace(/[ ,.]/g, "")})`)
             .on("mouseover", function (event, d) {
                 d3.select(this).attr("stroke-width", 5);
                 tooltip.transition().duration(200).style("opacity", 1);
-                if(data[d.packetnum]._source.layers.frame["frame.coloring_rule.name"] == "TCP") {
+                const pkt = data[ d.packetnum ];
+                if (pkt._source.layers.tcp) {
                     tooltip.html(`<span>Protocol: ${d.l7Protocol}</span>
-                        <br /><span>Packet size: ${data[d.packetnum]._source.layers.frame["frame.len"]} bytes</span>
-                        <br /><span>TCP seq: ${data[d.packetnum]._source.layers.tcp["tcp.seq"]}</span>
-                        <br /><span>TCP ack: ${data[d.packetnum]._source.layers.tcp["tcp.ack"]}</span>`)
+                    <br /><span>Packet size: ${pkt._source.layers.frame[ "frame.len" ]} bytes</span>
+                    <br /><span>TCP seq: ${pkt._source.layers.tcp[ "tcp.seq" ]}</span>
+                    <br /><span>TCP ack: ${pkt._source.layers.tcp[ "tcp.ack" ]}</span>`)
                         .style("left", (event.clientX + 5) + "px")
                         .style("top", (event.clientY - 28) + "px");
-                }
-                else {
+                } else {
                     tooltip.html(`<span>Protocol: ${d.l7Protocol}</span>
-                        <br /><span>Packet size: ${data[d.packetnum]._source.layers.frame["frame.len"]} bytes</span>`)
+                    <br /><span>Packet size: ${pkt._source.layers.frame[ "frame.len" ]} bytes</span>`)
                         .style("left", (event.clientX + 5) + "px")
                         .style("top", (event.clientY - 28) + "px");
                 }
@@ -629,11 +599,10 @@ export default function TimelineEntry({ entryIndex, hidden }) {
             })
             .on("click", (event, d) => {
                 dispatch(setShowInfo(true));
-                dispatch(setSelectedPacket(data[d.packetnum]));
+                dispatch(setSelectedPacket(data[ d.packetnum ]));
             });
 
-
-        // Draw white box on the left & right margins to hide the overflowing arrows
+        // Mask out areas beyond the lines
         svgGroup.append("rect")
             .attr("x", -margin.left)
             .attr("y", 0)
@@ -673,7 +642,7 @@ export default function TimelineEntry({ entryIndex, hidden }) {
             .attr("transform", `translate(0, ${hostBY})`)
             .call(xAxis);
 
-        // Add grid lines with dotted lines
+        // Add grid lines
         svgGroup.append("g")
             .attr("class", "grid")
             .attr("transform", `translate(0, ${hostBY})`)
@@ -685,33 +654,31 @@ export default function TimelineEntry({ entryIndex, hidden }) {
             )
             .selectAll(".tick line")
             .attr("stroke", "#e0e0e0")
-            .attr("stroke-dasharray", "2,2"); // Dotted lines
+            .attr("stroke-dasharray", "2,2");
 
-        // Bring the x-axis to the front
         svgGroup.selectAll(".x-axis").raise();
 
         const minDomain = xScale.domain()[ 0 ];
         const maxDomain = xScale.domain()[ 1 ];
 
-        function constrain(transform, extent, translateExtent) {
+        function constrain(transform) {
             const scaleX = transform.rescaleX(xScale);
             let domain = scaleX.domain();
 
             let k = transform.k;
             let tx = transform.x;
-
             const domainWidth = maxDomain - minDomain;
             const visibleDomainWidth = domain[ 1 ] - domain[ 0 ];
 
-            // Prevent zooming out beyond the original domain
+            // Prevent zooming out beyond original domain
             if (visibleDomainWidth > domainWidth) {
-                k = 1; // Reset to minimum scale
-                tx = 0; // Reset translation
+                k = 1; // Reset
+                tx = 0;
                 transform = d3.zoomIdentity.scale(k).translate(tx, transform.y);
                 domain = transform.rescaleX(xScale).domain();
             }
 
-            // Adjust translation to prevent panning beyond domain
+            // Adjust translation
             if (domain[ 0 ] < minDomain) {
                 const minX = xScale(minDomain);
                 tx = -minX * k;
@@ -724,17 +691,15 @@ export default function TimelineEntry({ entryIndex, hidden }) {
             return d3.zoomIdentity.translate(tx, transform.y).scale(k);
         }
 
-
-        // Zoom function
         function zoomed(event) {
             const newXScale = event.transform.rescaleX(xScale);
 
-            if (alignTimeRef.current && !(shouldUpdateZoomRef.current)) dispatch(broadcastZoomUpdate({ zoomState: { scale: event.transform.k, translateX: event.transform.x }, index: entryIndex }));
+            if (alignTimeRef.current && !(shouldUpdateZoomRef.current)) {
+                dispatch(broadcastZoomUpdate({ zoomState: { scale: event.transform.k, translateX: event.transform.x }, index: entryIndex }));
+            }
 
             // Update x-axis
-            xAxisGroup.call(
-                xAxis.scale(newXScale)
-            );
+            xAxisGroup.call(xAxis.scale(newXScale));
 
             // Update grid lines
             svgGroup.select(".grid")
@@ -746,10 +711,11 @@ export default function TimelineEntry({ entryIndex, hidden }) {
                 )
                 .selectAll(".tick line")
                 .attr("stroke", "#e0e0e0")
-                .attr("stroke-dasharray", "2,2"); // Dotted lines
+                .attr("stroke-dasharray", "2,2");
 
             // Update packet lines
-            packetLines.attr("x1", d => newXScale(d.sendTime))
+            packetLines
+                .attr("x1", d => newXScale(d.sendTime))
                 .attr("x2", d => newXScale(d.receiveTime));
 
             // Update host lines
@@ -758,22 +724,14 @@ export default function TimelineEntry({ entryIndex, hidden }) {
                 .attr("x2", newXScale.range()[ 1 ]);
         }
 
-
-
         zoomRef.current = d3.zoom()
-            .scaleExtent([ 1, 20 ]) // Set minimum scale to 1
+            .scaleExtent([ 1, 20 ])
             .on("zoom", zoomed)
             .constrain(constrain);
 
         svg.call(zoomRef.current);
 
-
-
-
-
-
-
-    }, [ metadata, entryIndex, timelineData, dispatch, d3ShouldRender, propDelays, startEpoch, endEpoch, alignTime, shouldUpdateZoom, alignedZoomState.translateX, alignedZoomState.scale ]);
+    }, [ metadata, entryIndex, timelineData, dispatch, d3ShouldRender, startEpoch, endEpoch, alignTime, shouldUpdateZoom, alignedZoomState.translateX, alignedZoomState.scale ]);
 
     useEffect(() => {
         if (formShouldReset) {
