@@ -581,7 +581,7 @@ export default function TimelineEntry({ entryIndex, hidden }) {
         // Create tooltip div (hidden by default)
         const tooltip = d3.select(svgRef.current.parentNode)
             .append("div")
-            .attr("class", "tooltip")
+            .attr("class", "timeline-tooltip")
             .style("position", "fixed")
             .style("background", "#f9f9f9")
             .style("padding", "5px")

@@ -436,7 +436,7 @@ export default function GraphView() {
                 // .on("dblclick", resetNodePosition)
                 .on("click", (event, d) => {
                     dispatch(addEntry({ metadata: null, formSelections: { hostA: d.ip_addr, portA: d.port, hostB: "", portB: "", radioASelected: true } })); // Add new entry in TimelineView
-                    d3.selectAll(".tooltip").remove();
+                    // d3.selectAll(".tooltip").remove();
                     dispatch(setShouldFocusLastEntry(true));
                 })
             
